@@ -9,6 +9,7 @@ variant's Phase 0 artefacts, then assembles and compares.
     python build.py release rm48     just these
     python build.py --check          verify only, without regenerating
 """
+import hashlib
 import subprocess
 import sys
 from pathlib import Path
@@ -41,23 +42,35 @@ def driver():
 
 
 def generate(variant):
-    out = variants.src_dir(variant)
-    out.mkdir(parents=True, exist_ok=True)
+    """Regenerate the shared sources plus this variant's own two files.
+
+    The translated assembly is identical for every variant -- the switches
+    reach it as .equ symbols and .if blocks -- so it is written once into
+    src/shared/.  Only the config header and the two version stamps differ.
+    """
+    shared = variants.shared_dir()
+    shared.mkdir(parents=True, exist_ok=True)
+    variants.src_dir(variant).mkdir(parents=True, exist_ok=True)
 
     run(["tools/dumpsyms.py", "emit", "--variant", variant])
     run(["tools/textcomprs.py", "emit"])
-    run(["tools/listing.py", "swis", "--variant", variant])
-    (out / "LOGdata").write_bytes((ROOT / "ref/source-tokenised/LOGdata").read_bytes())
+    run(["tools/listing.py", "swis"])
+    (shared / "LOGdata").write_bytes((ROOT / "ref/source-tokenised/LOGdata").read_bytes())
     run(["tools/mkamiperiods.py", "--variant", variant])
 
     deferred = 0
     for name in SOURCES:
         r = run(["tools/bas2vasm.py", "ref/source-text/%s.bas" % name,
-                 "--variant", variant, "-o", str(out / ("%s.asm" % name.lower()))])
+                 "--variant", variant, "-o", str(shared / ("%s.asm" % name.lower()))])
         deferred += len([l for l in r.stderr.splitlines()
                          if l.strip().startswith("line ")])
     run(["tools/mktoplevel.py", driver(), "--variant", variant])
     return deferred
+
+
+def shared_hashes():
+    return {f.name: hashlib.sha256(f.read_bytes()).hexdigest()
+            for f in sorted(variants.shared_dir().iterdir()) if f.is_file()}
 
 
 def main():
@@ -65,7 +78,7 @@ def main():
     check_only = "--check" in sys.argv
     wanted = argv or list(variants.VARIANTS)
 
-    failures = []
+    failures, baseline = [], None
     for variant in wanted:
         info = variants.get(variant)
         print("\n=== %s -- %s ===" % (variant, info["note"]))
@@ -76,6 +89,17 @@ def main():
             deferred = generate(variant)
             print("  generated src/%s/ (%s)"
                   % (variant, "%d deferred" % deferred if deferred else "clean"))
+            # src/shared/ is regenerated for each variant and must come out
+            # identical every time; if it does not, something variant-specific
+            # has leaked into the shared sources and the layout is a lie.
+            current = shared_hashes()
+            if baseline is None:
+                baseline = current
+            elif current != baseline:
+                drifted = [k for k in current if current.get(k) != baseline.get(k)]
+                print("  *** src/shared/ differs for this variant: %s"
+                      % ", ".join(drifted))
+                failures.append(variant)
         sys.stdout.flush()
         r = subprocess.run([PY, "tools/verify.py", "--variant", variant],
                            capture_output=True, text=True, cwd=ROOT)

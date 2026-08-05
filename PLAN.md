@@ -551,10 +551,9 @@ from the original BASIC alongside their listings (`tools/emulator/README.md`). E
 listing was validated against its own module first — reconstructing from it mismatches in
 **0 bytes** across the ~75% it covers, the same check that validated the release capture.
 
-`tools/variants.py` holds the four configurations and the paths to their artefacts.
-Everything downstream takes `--variant`, and each build gets its own `src/<variant>/`,
-because a single source cannot serve all four: constants like `dma` are folded at
-conversion time, and the `FNlong_adr` sites differ per build.
+`tools/variants.py` holds the four configurations and the paths to their artefacts, and
+everything downstream takes `--variant`.  The translated assembly is **shared**: see
+§5g.
 
 **`alphatest` is a real code variant**, not a changed help string as §6 implied. It adds
 ten instrumentation counters *inside* the DMA fill path, a `swi_qtmdebug` entry and a
@@ -576,6 +575,45 @@ variant's own reference binary at generation time, since both the version letter
 beta, `a` alpha, `r` RasterMan) and the stamped build date vary. The captured references
 carry `05 Aug 1992` — the emulator's clock — which is a good illustration of why §0.4's
 "freeze the observed bytes" rule matters more than reproducing the patch logic.
+
+## 5g. One source, four builds
+
+The first cut of Phase 6 gave each variant its own copy of every file.  That was not
+inherent -- five of the seven were already identical, and the rest differed for three
+reasons, each fixable:
+
+1. **Constants were folded at conversion time.**  Expressions are now parsed to an AST and
+   *re-rendered* as fully parenthesised vasm expressions, so `dmarep<<8 OR 6` stays an
+   expression and takes its value from the variant's `.equ`.  Only floats and `ASC` are
+   still folded, because vasm cannot express them.  Full parenthesisation also removes any
+   dependence on vasm's precedence matching BASIC's -- it mostly does, but BASIC gives
+   `EOR` the same precedence as `OR` while C-like grammars put `^` between `&` and `|`.
+
+2. **`FNlong_adr` took its ADD/SUB direction from the listing.**  It is now computed by
+   vasm branchlessly: `(d>>31)` is 0 or -1, which gives both the opcode bit and, via
+   `(d^(d>>31))-(d>>31)`, the magnitude.  Note the sign and magnitude come from *different*
+   expressions, because the original's do -- `gap%=ABS(addr%-P%-8)` but
+   `IF addr%<P% THEN SUB` -- so a target 0-7 bytes ahead is an ADD of a magnitude derived
+   from a negative difference.  Sites inside a switched-off `.if` are emitted normally and
+   skipped by vasm, so nothing is variant-specific any more.
+
+3. **Build-time BASIC variables never reached vasm.**  `dmarep` was resolved during
+   conversion; it is now emitted as a conditional `.equ`, mirroring
+   `IF qtmrast% THEN dmarep=dma/4 ELSE dmarep=dma`.
+
+What remains genuinely per-variant is 8 KB against 326 KB shared:
+
+```
+src/shared/      qtm.asm, the seven translated files, qtm_amiperiods.asm,
+                 swis.h.asm (the union across variants), LOGdata
+src/<variant>/   qtm_offsets.h.asm  -- the switches and offsets
+                 stamp_*.asm        -- the version stamps, and one string
+                                       built with STR$ from a build constant
+```
+
+`build.py` regenerates `src/shared/` for every variant and **fails if the result differs**,
+so a variant-specific leak cannot pass unnoticed.  That check earned its place immediately:
+it caught `qtm_mod.asm` still varying by one line after the first attempt looked complete.
 
 ## 6. Effort and sequencing note
 

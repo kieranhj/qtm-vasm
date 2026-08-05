@@ -57,7 +57,7 @@ def main():
 
     # Drop bas2vasm's own two-line banner; this file carries its own.
     body = scratch.read_text(encoding="utf-8").split("\n")[3:]
-    path = variants.src_dir(variant) / "qtm.asm"
+    path = variants.shared_dir() / "qtm.asm"
     path.write_text(PROLOGUE + "\n".join(body).rstrip() + "\n",
                     encoding="utf-8", newline="\n")
     print("wrote %s" % path)

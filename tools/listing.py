@@ -129,20 +129,29 @@ def main():
     cells, labels, lines = parse()
 
     if action == "swis":
-        # Take the SWI numbers from the assembled words rather than an external
-        # table: the encoding is ground truth, a copied table is a guess.
+        # The union across all variants, so one header serves every build:
+        # each listing only names the SWIs its own build happens to use
+        # (XOS_Claim/XOS_Release in the release build, XOS_WriteN in RasterMan).
+        # Numbers come from the assembled words rather than an external table.
         swis = {}
-        for addr, text in sorted(lines.items()):
-            m = re.match(r"^[0-9A-F]{8} ([0-9A-F]{8})\s+SWI[A-Z]*\s+\"([^\"]+)\"", text)
-            if m:
-                swis[m.group(2)] = int(m.group(1), 16) & 0xFFFFFF
-        out = ["; SWI numbers used by QTM v1.49b.",
+        for name in variants.VARIANTS:
+            if not variants.listing_path(name).exists():
+                continue
+            use(name)
+            for addr, text in sorted(parse()[2].items()):
+                m = re.match(r"^[0-9A-F]{8} ([0-9A-F]{8})\s+SWI[A-Z]*\s+\"([^\"]+)\"", text)
+                if m:
+                    num = int(m.group(1), 16) & 0xFFFFFF
+                    if swis.setdefault(m.group(2), num) != num:
+                        raise SystemExit("SWI %s has two numbers" % m.group(2))
+        out = ["; SWI numbers used by QTM v1.49b, across all build variants.",
                "; Extracted by tools/listing.py from the assembled words in the",
-               "; golden listing, so these are the numbers the original build used.",
+               "; golden listings, so these are the numbers the original used.",
                ""]
         for name in sorted(swis):
             out.append("    .equ %-28s,0x%06X" % (name, swis[name]))
-        path = variants.src_dir(CURRENT) / "swis.h.asm"
+        path = variants.shared_dir() / "swis.h.asm"
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("\n".join(out) + "\n", encoding="utf-8", newline="\n")
         print("wrote %s (%d SWIs)" % (path, len(swis)))
         return 0

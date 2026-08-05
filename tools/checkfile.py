@@ -42,11 +42,12 @@ def defined_labels(text):
     return [m.group(1) for m in (LABEL_DEF.match(l) for l in text.splitlines()) if m]
 
 
-def header_symbols(src_root):
+def header_symbols(dirs):
     """Names already provided by the shared headers, so not external."""
     names = set()
-    for name in ("qtm_offsets.h.asm", "swis.h.asm"):
-        path = src_root / name
+    for d, name in ((d, n) for d in dirs
+                    for n in ("qtm_offsets.h.asm", "swis.h.asm")):
+        path = d / name
         if path.exists():
             for m in re.finditer(r"^\s*\.equ\s+([A-Za-z_][A-Za-z0-9_]*)",
                                  path.read_text(encoding="utf-8"), re.M):
@@ -115,7 +116,7 @@ def main():
     missing = [n for n in mine if n not in labels]
 
     # Everything referenced but not defined here, that the listing knows about.
-    externals = sorted(referenced(text + included) - set(mine) - header_symbols(src.parent))
+    externals = sorted(referenced(text + included) - set(mine) - header_symbols([src.parent, variants.src_dir(variant)]))
     stubs = ["; Auto-generated stubs: labels defined in other files, taken from",
              "; the golden listing so this file can be placed and checked alone.",
              ""]
@@ -134,7 +135,7 @@ def main():
     top.write_text(
         '\t.include "%s"\n\t.include "%s"\n\t.include "%s"\n'
         '\t.org 0x%X\n\t.include "%s"\n'
-        % ((src.parent / "qtm_offsets.h.asm").as_posix(),
+        % ((variants.src_dir(variant) / "qtm_offsets.h.asm").as_posix(),
            (src.parent / "swis.h.asm").as_posix(),
            stub_path.as_posix(), start, src.as_posix()),
         encoding="utf-8", newline="\n")
@@ -142,7 +143,7 @@ def main():
     out = WORK / (src.stem + ".bin")
     lst = WORK / (src.stem + ".lst")
     r = subprocess.run([str(VASM), "-m250", "-Fbin", "-o", str(out),
-                        "-I", str(src.parent), "-L", str(lst), str(top)],
+                        "-I", str(src.parent), "-I", str(variants.src_dir(variant)), "-L", str(lst), str(top)],
                        capture_output=True, text=True)
     errors = [l for l in (r.stdout + r.stderr).splitlines()
               if "error" in l.lower() or l.startswith(">")]

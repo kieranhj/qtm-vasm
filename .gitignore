@@ -4,3 +4,4 @@ build/
 compile*.txt
 listing-scratch/
 __pycache__/
+.vscode/tasks.json

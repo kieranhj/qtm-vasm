@@ -71,6 +71,11 @@ FN_INCLUDES = {
 # the machine's clock said when the reference was captured.
 POST_PATCH = {}
 
+# Build constants whose value differs between variants.  Any string built from
+# one of these cannot stay in the shared sources.
+VARIANT_SYMBOLS = re.compile(
+    r"\b(qtmrast|alphatest|dmachoice|uS|dma|dmashift[123]|maxchans)\b")
+
 
 def derive_post_patch(labels, module):
     """Read the patched help bytes straight out of the reference binary.
@@ -222,41 +227,25 @@ def split_statements(line):
 # rather than handed to vasm: bitwise word-operators (which truncate their
 # operands first), float literals, and shifts (which bind looser than +/- in
 # BASIC but tighter in vasm).
-NEEDS_FOLD = re.compile(r"\bAND\b|\bOR\b|\bEOR\b|\bDIV\b|\bMOD\b|\bASC\b|<<|>>|\d\.\d")
-
-
 def conv_expr(text, env):
-    """Translate a BASIC expression, folding only where semantics differ.
+    """Translate a BASIC expression, keeping it symbolic wherever possible.
 
-    Anything vasm can compute identically is left symbolic, so the generated
-    source still reads as offsets rather than a wall of magic numbers.
+    Symbols are left alone and the result is fully parenthesised, so the same
+    text is correct in every build variant -- "dmarep<<8 OR 6" has a different
+    value per variant but is the same expression.  Only floats and ASC are
+    folded, because vasm cannot express them.
     """
     text = text.strip()
     if not text:
         return text
-    if NEEDS_FOLD.search(text):
-        try:
-            value = basexpr.trunc(basexpr.evaluate(text, env))
-        except Exception:
-            pass
-        else:
-            # BASIC's integers are 32-bit and wrap; QTM_Mod has
-            # "TST R0,#%1110<<29", which is 0x1C0000000 before truncation.
-            # vasm reaches the same answer but warns, so wrap it here.
-            if not -0x80000000 <= value < 0x80000000:
-                value &= 0xFFFFFFFF
-            return ("0x%X" % value) if abs(value) >= 10 else str(value)
-    # Left symbolic: just fix the literal syntax.
-    text = re.sub(r"&([0-9A-Fa-f]+)", r"0x\1", text)
-    text = re.sub(r"%([01]+)", r"0b\1", text)
-    text = re.sub(r"\bAND\b", "&", text)
-    text = re.sub(r"\bOR\b", "|", text)
-    text = re.sub(r"\bEOR\b", "^", text)
-    # BASIC pads decimals with leading zeros to keep columns aligned
-    # ("EQUB 049"); vasm rejects those.  Applied after the hex rewrite so the
-    # digits inside 0x00FF are left alone.
-    text = re.sub(r"(?<![\w.])0+(\d)", r"\1", text)
-    return text
+    try:
+        return basexpr.render(text, env)
+    except Exception:
+        # Not parseable as an expression (a register list, say): fix the
+        # literal syntax and pass it through.
+        text = re.sub(r"&([0-9A-Fa-f]+)", r"0x", text)
+        text = re.sub(r"%([01]+)", r"0b", text)
+        return re.sub(r"(?<![\w.])0+(\d)", r"", text)
 
 
 def conv_cond(text, env):
@@ -358,26 +347,20 @@ def conv_operand(part, env):
         value = strip_outer_parens(conv_expr(part[1:], env))
         # vasm's ARM backend cannot parse an immediate beginning with '(',
         # even when the parens do not wrap the whole expression, as in
-        # "#(channeldata-song_data)-64".  Those are always constant here, so
-        # fold them; readability is preserved by the source comment alongside.
+        # "#(channeldata-song_data)-64".  A leading "0+" gets it past the
+        # parser without changing the value, and without folding -- folding
+        # here would bake in one variant's constants.
         if value.startswith("("):
-            try:
-                folded = basexpr.trunc(basexpr.evaluate(part[1:], env))
-            except Exception:
-                pass
-            else:
-                value = ("0x%X" % folded) if abs(folded) >= 10 else str(folded)
-        if value.startswith("("):
-            # Still parenthesised, so it references labels and cannot be folded
-            # here (e.g. "#(endSWItable-startSWItable)/4").  A leading "0+"
-            # gets it past vasm's parser without changing the value.
             value = "0+" + value
         return "#" + value
 
     # Bare register or shifted register with no immediate.
     if re.match(r"^(R\d+|PC|LR|SP)!?$", part, re.I):
         return part.upper()
-    return conv_expr(part, env)
+    # Rendering parenthesises fully, but vasm will not accept an operand that
+    # begins with '(' -- "SWI (0x100 + 0x2C)" is rejected -- so drop the
+    # redundant outermost pair.
+    return strip_outer_parens(conv_expr(part, env))
 
 
 # -------------------------------------------------------------------- strings
@@ -500,6 +483,9 @@ class Converter:
         self.block_depth = 0
         self.pending_data = False
         self.pending_labels = []
+        self.emitted_equs = set()
+        self.stamp_dir = None
+        self.stamp_names = set()
         # Whether the code currently being emitted is part of *this* build.
         # Sites inside a false conditional were never assembled by the
         # original, so there is nothing in the listing to match them against.
@@ -524,6 +510,62 @@ class Converter:
     def note(self, lineno, message, text):
         self.notes.append((lineno, message, text))
         self.out.append("\t; TODO(%d): %s -- %s" % (lineno, message, text))
+
+    def assign(self, stmt, lineno, emit, dedup=True):
+        """Record a build-time BASIC variable, optionally emitting a .equ.
+
+        The value has to be kept for later expressions to evaluate against, but
+        it also has to reach vasm: QTM_DMA's unroll table is built from dmarep,
+        and leaving that symbol undefined shows up as "illegal relocation".
+        """
+        m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)%?\s*=\s*(.+)$", stmt)
+        if not m:
+            self.note(lineno, "unparsed assignment", stmt)
+            return
+        name, expr = m.group(1), m.group(2)
+        try:
+            value = basexpr.evaluate(expr, self.env)
+        except Exception:
+            self.note(lineno, "assignment not constant", stmt)
+            return
+        self.env[name] = value
+        if not emit:
+            return
+        # The two arms of a conditional .equ define the same name, so the
+        # duplicate guard must not suppress the second one.
+        if dedup and name in self.emitted_equs:
+            return
+        self.emitted_equs.add(name)
+        self.emit("\t.equ %s,%s" % (name, conv_expr(expr, self.env)))
+
+    def emit_stamp(self, name, data, comment):
+        """Put per-variant bytes in their own file and include it.
+
+        These are the only places the translation cannot be shared: the version
+        stamps PROCvalidatecrc writes, and one string built with STR$ from a
+        build constant.
+        """
+        # Two EQUS can share a source line -- QTM_Mod line 3040 carries the
+        # RasterMan banner and its version string -- so the name needs a
+        # suffix, or the second overwrites the first and both includes end up
+        # pointing at the same bytes.
+        if name in self.stamp_names:
+            n = 2
+            while "%s_%d" % (name, n) in self.stamp_names:
+                n += 1
+            name = "%s_%d" % (name, n)
+        self.stamp_names.add(name)
+
+        self.emit('\t.include "stamp_%s.asm"' % name, comment)
+        if not self.stamp_dir:
+            return
+        path = self.stamp_dir / ("stamp_%s.asm" % name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            "; Per-variant data for %s.\n"
+            "; Generated by tools/bas2vasm.py; do not hand-edit.\n"
+            "\t.byte\t%s\n" % (name, ",".join(emit_bytes(data))),
+            encoding="utf-8", newline="\n")
 
     def flush_labels(self):
         """Emit labels held back while waiting to see whether code follows."""
@@ -664,33 +706,10 @@ class Converter:
         one encodes is checked against the target label's address, so a
         mis-pairing is caught rather than silently emitted.
         """
-        if not self.active():
-            # Inside a conditional this variant switches off, so the original
-            # never assembled it and there is no listing site to match against.
-            # Each variant uses its own subset of the 22 call sites.
-            self.note(lineno, "not assembled in this variant", stmt)
-            return
-        if not self.adr_sites:
-            self.note(lineno, "no FNlong_adr site left in the listing", stmt)
-            return
-
-        addr, word1, word2 = self.adr_sites.pop(0)
-        is_sub = (word1 & 0x02F00000) == 0x02400000
-        gap = (word1 & 0xFF) | ((word2 & 0xFF) << 8)
-
-        want = self.golden_labels.get(target)
-        if want is None:
-            self.note(lineno, "FNlong_adr target %r not in listing" % target, stmt)
-            return
-        expect = (addr + 8 - want) if is_sub else (want - addr - 8)
-        if expect != gap or ((word1 >> 12) & 0xF) != reg:
-            self.note(lineno, "FNlong_adr site 0x%04X does not match target %s "
-                              "(gap 0x%X vs 0x%X)" % (addr, target, gap, expect), stmt)
-            return
-
-        tag = "%s_adr%d" % (self.prefix, self.adr_count)
-        self.adr_count += 1
-        span = ("%s+8-%s" % (tag, target)) if is_sub else ("%s-%s-8" % (target, tag))
+        # The label is keyed on the source line, not a running counter, so the
+        # name is the same in every variant even though each build assembles a
+        # different subset of the 22 call sites.
+        tag = "%s_adr%d" % (self.prefix, lineno)
 
         # Emitted as .long, exactly as FNlong_adr does ("EQUD optcode1%"),
         # rather than as ADD/SUB mnemonics.  The second word always uses
@@ -699,20 +718,49 @@ class Converter:
         # prefers: for gap 0x5C3C it picked rotate 11 / imm 0x17 against the
         # original's rotate 12 / imm 0x5C.  Both mean 0x5C00, but only one is
         # byte-identical.  Composing the word here removes the choice.
-        base = 0x02400000 if is_sub else 0x02800000
-        base |= cond_code(cond) << 28 | reg << 12
+        #
+        # Sign and magnitude are computed by vasm rather than looked up, so one
+        # source serves every variant.  They come from *different* expressions,
+        # because the original's do:
+        #
+        #     gap% = ABS(addr%-P%-8)
+        #     IF addr%<P% THEN SUB ELSE ADD
+        #
+        # so a target 0-7 bytes ahead is an ADD of a magnitude derived from a
+        # negative difference.  Conditional assembly cannot pick the sign --
+        # vasm's .if resolves a not-yet-seen label to 0 and takes the wrong
+        # branch on every forward reference -- so it is done branchlessly:
+        # (d>>31) is 0 or -1, giving the ADD/SUB opcode bit and, via
+        # (d^(d>>31))-(d>>31), the absolute value.
+        d = "(%s-%s-8)" % (target, tag)
+        sign = "((%s-%s)>>31)" % (target, tag)
+        mag = "((%s^(%s>>31))-(%s>>31))" % (d, d, d)
+        base = cond_code(cond) << 28 | reg << 12
         self.emit(tag + ":", comment or ("; " + stmt))
-        self.emit("\t.long\t0x%08X+((%s)&0xFF)" % (base | 0xF << 16, span))
-        self.emit("\t.long\t0x%08X+(((%s)&0xFF00)>>8)"
-                  % (base | 0xC << 8 | reg << 16, span))
+        self.emit("\t.long\t0x%08X-(%s&0x00400000)+(%s&0xFF)"
+                  % (base | 0x02800000 | 0xF << 16, sign, mag))
+        self.emit("\t.long\t0x%08X-(%s&0x00400000)+((%s>>8)&0xFF)"
+                  % (base | 0x02800000 | 0xC << 8 | reg << 16, sign, mag))
 
     def data_string(self, rest, comment, lineno):
         # A frozen post-assembly patch takes precedence over what the source
         # would have assembled here.
         if self.patch_pending:
-            data = POST_PATCH[self.patch_pending]
-            self.emit("\t.byte\t%s" % ",".join(emit_bytes(data)),
-                      "; frozen post-assembly patch (%s)" % self.patch_pending)
+            # The only per-variant bytes in the whole translation, so they live
+            # in their own small file rather than forcing a separate copy of
+            # qtm_mod.asm for each build.
+            name = self.patch_pending
+            data = POST_PATCH[name]
+            self.emit('\t.include "stamp_%s.asm"' % name,
+                      "; frozen post-assembly patch, per variant")
+            if self.stamp_dir:
+                path = self.stamp_dir / ("stamp_%s.asm" % name)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(
+                    "; %s, as PROCvalidatecrc leaves it in the reference binary.\n"
+                    "; Generated by tools/bas2vasm.py; do not hand-edit.\n"
+                    "\t.byte\t%s\n" % (name, ",".join(emit_bytes(data))),
+                    encoding="utf-8", newline="\n")
             self.patch_pending = None
             return
         if lineno in self.frozen_help:
@@ -730,6 +778,14 @@ class Converter:
             data = eval_string(rest, self.env)
         except Exception as exc:
             self.note(lineno, str(exc), "EQUS " + rest)
+            return
+        # A string built from a build constant -- QTM_Mod's
+        # EQUS STR$dmachoice+"uS version, for use only with RasterMan"
+        # -- differs per variant, and vasm has no string formatting to defer it
+        # to.  So it goes to a per-variant include, like the version stamps,
+        # rather than forcing a whole separate copy of the file.
+        if VARIANT_SYMBOLS.search(rest):
+            self.emit_stamp("l%d" % lineno, data, comment)
             return
         self.emit("\t.byte\t%s" % ",".join(emit_bytes(data)), comment)
 
@@ -794,16 +850,31 @@ class Converter:
 
         # IF cond THEN <assign> ELSE <assign> -- a build-time variable, not
         # emitted code, so resolve it here and fold the result into the env.
-        m = re.match(r"^IF\s+(.*?)\s+THEN\s+(.*?)(?:\s+ELSE\s+(.*))?$", stmt, re.I)
+        # Try the ELSE form first: with the ELSE clause optional, the non-greedy
+        # THEN group happily swallows "... ELSE ..." whole and group 3 comes
+        # back None, which silently drops the else branch.
+        m = (re.match(r"^IF\s+(.*?)\s+THEN\s+(.*?)\s+ELSE\s+(.*)$", stmt, re.I)
+             or re.match(r"^IF\s+(.*?)\s+THEN\s+(.*)$()", stmt, re.I))
         if m and "=" in m.group(2):
+            # A build-time variable set conditionally, e.g. QTM_DMA's
+            #   IF qtmrast% THEN dmarep=dma/4 ELSE dmarep=dma
+            # Emitted as a conditional .equ rather than resolved here, so the
+            # value stays symbolic and the same text serves every variant.
             try:
                 taken = basexpr.evaluate(m.group(1), self.env)
             except Exception:
                 self.note(lineno, "conditional needs review", stmt)
                 return
+            self.emit("\t.if %s" % conv_cond(m.group(1), self.env))
+            self.assign(m.group(2).strip(), lineno, emit=True, dedup=False)
+            if m.group(3):
+                self.emit("\t.else")
+                self.assign(m.group(3).strip(), lineno, emit=True, dedup=False)
+            self.emit("\t.endif")
+            # Still record the value, since later expressions may need it.
             branch = m.group(2) if taken else m.group(3)
             if branch:
-                self.basic_statement(branch.strip(), "", lineno)
+                self.assign(branch.strip(), lineno, emit=False)
             return
 
         # Offset-assembly bookkeeping with no vasm equivalent: P%/O%/L% set the
@@ -816,12 +887,8 @@ class Converter:
             return
 
         # Plain assignment to a build-time variable.
-        m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*%?)\s*=\s*(.+)$", stmt)
-        if m:
-            try:
-                self.env[m.group(1).rstrip("%")] = basexpr.evaluate(m.group(2), self.env)
-            except Exception:
-                self.note(lineno, "assignment not constant", stmt)
+        if re.match(r"^[A-Za-z_][A-Za-z0-9_]*%?\s*=", stmt):
+            self.assign(stmt, lineno, emit=True)
             return
 
         m = re.match(r"^IF\s+(.*)$", stmt, re.I)
@@ -942,6 +1009,7 @@ def main():
 
     conv = Converter(env)
     conv.prefix = Path(args.source).stem.lower()
+    conv.stamp_dir = variants.src_dir(args.variant)
 
     # Give the converter the golden listing, and narrow the FNlong_adr sites to
     # this file's address range -- found from the labels it defines -- so the

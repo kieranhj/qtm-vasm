@@ -67,7 +67,13 @@ def module_path(name):
 
 
 def src_dir(name):
+    """Where a variant's own files go: the config header and version stamps."""
     return ROOT / "src" / name
+
+
+def shared_dir():
+    """The translated sources, which are identical for every variant."""
+    return ROOT / "src" / "shared"
 
 
 def constants(name):

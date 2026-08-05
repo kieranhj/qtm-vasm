@@ -34,10 +34,13 @@ python build.py --check          verify without regenerating
 ```
 
 **Everything under `src/` is generated** — from the detokenised BASIC in `ref/source-text/`
-plus each variant's golden listing. Edit the tools, not the output. Each variant gets its
-own `src/<variant>/`, because a single source cannot serve all four: constants such as
-`dma` are folded at conversion time and the `FNlong_adr` sites differ per build.
-`tools/variants.py` defines the configurations.
+plus each variant's golden listing. Edit the tools, not the output.
+
+The translated assembly is **shared by all four variants** (326 KB in `src/shared/`); what
+differs is 8 KB per variant in `src/<variant>/` — the config header of `.equ` switches, and
+the version stamps that `PROCvalidatecrc` writes after assembly. `build.py` regenerates the
+shared tree for each variant and fails if it comes out different, so a variant-specific
+leak cannot slip in unnoticed. `tools/variants.py` defines the configurations.
 
 `tools/checkfile.py src/release/qtm_dma.asm` places a single file at its real address and
 diffs it against the module, which is how each was brought up individually.
@@ -72,7 +75,8 @@ tools/variants.py         the four build configurations
 tools/verify.py           assemble and compare against the reference binary
 tools/emulator/           how ref/listing.txt was captured, under Arculator
 tools/vasmarm_std_win32.exe   vasm 1.8k, ARM backend 0.4h, std syntax
-src/<variant>/            the vasm port, one directory per build variant
+src/shared/               the vasm port — identical for every variant
+src/<variant>/            per-variant switches and version stamps
 build/                    build output (gitignored)
 ```
 

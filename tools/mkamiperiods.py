@@ -78,7 +78,7 @@ def main():
         % (EXPECT_VALUES // 72, EXPECT_VALUES * 2),
         "",
     ]
-    path = variants.src_dir(variant) / "qtm_amiperiods.asm"
+    path = variants.shared_dir() / "qtm_amiperiods.asm"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(header + out) + "\n", encoding="utf-8", newline="\n")
     print("wrote %s (%d values, %d bytes)" % (path, count, count * 2))

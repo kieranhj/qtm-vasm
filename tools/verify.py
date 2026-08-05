@@ -31,7 +31,7 @@ VARIANT = variants.DEFAULT
 if "--variant" in sys.argv:
     VARIANT = sys.argv[sys.argv.index("--variant") + 1]
 
-TOP = variants.src_dir(VARIANT) / "qtm.asm"
+TOP = variants.shared_dir() / "qtm.asm"
 OUT = ROOT / "build" / ("qtm-%s.bin" % VARIANT)
 REF = variants.module_path(VARIANT)
 LISTING = variants.listing_path(VARIANT)
@@ -54,7 +54,9 @@ def build():
         print("no %s yet -- nothing to assemble (Phase 1 not started)" % TOP)
         return False
     OUT.parent.mkdir(exist_ok=True)
-    cmd = [str(VASM), "-m250", "-Fbin", "-I", str(TOP.parent),
+    cmd = [str(VASM), "-m250", "-Fbin",
+           "-I", str(variants.src_dir(VARIANT)),   # config header and stamps
+           "-I", str(TOP.parent),                   # the shared sources
            "-o", str(OUT), str(TOP)]
     print("$ " + " ".join(cmd))
     r = subprocess.run(cmd, capture_output=True, text=True)
