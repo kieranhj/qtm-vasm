@@ -1,0 +1,11 @@
+# Ground truth must never be touched. Tokenised BBC BASIC uses 0x0D as a
+# record marker and the module is a binary; CRLF conversion corrupts both.
+ref/**                     -text
+ref/QTMModule              binary
+ref/source-tokenised/**    binary
+tools/*.exe                binary
+
+# Ordinary text
+*.md                       text eol=lf
+*.py                       text eol=lf
+*.asm                      text eol=lf
