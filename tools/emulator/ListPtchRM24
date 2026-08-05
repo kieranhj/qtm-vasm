@@ -1,0 +1,6 @@
+ 330 key$="R"
+ 390 choice$="a":dmachoice=0
+ 645 OSCLI"Spool <QTMAssemble$Dir>.listRM24"
+ 655 *Spool
+ 800 md$="ModRM24"
+ 930 FOR opt%=13 TO 15 STEP 2

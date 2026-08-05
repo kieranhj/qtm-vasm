@@ -1,0 +1,6 @@
+ 290 alphatest%=TRUE
+ 330 key$=""
+ 645 OSCLI"Spool <QTMAssemble$Dir>.listAlpha"
+ 655 *Spool
+ 800 md$="ModAlpha"
+ 930 FOR opt%=13 TO 15 STEP 2

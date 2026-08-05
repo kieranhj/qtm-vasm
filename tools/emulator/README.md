@@ -91,6 +91,57 @@ and `FNmcr` are defined but never called, so they contribute nothing.
    It is text; converting LF/CRLF is harmless, but do not let anything touch
    the tokenised sources on the way back.
 
+## Phase 6: the build variants
+
+Three more runs, each producing **two** files that must come from the *same* run: a
+listing and a saved module. The module matters this time — unlike the release build there
+is no shipped binary to check these against, so the module you save *is* the reference.
+
+| Patch file | Variant | Config |
+|---|---|---|
+| `ListPtchRM24` | RasterMan 24 µs, 4-channel | `qtmrast%=TRUE`, `uS=24`, `dma=832`, `maxchans=4` |
+| `ListPtchRM48` | RasterMan 48 µs, 4/8-channel | `qtmrast%=TRUE`, `uS=48`, `dma=416`, `maxchans=8` |
+| `ListPtchAlpha` | alpha test | `alphatest%=TRUE`, otherwise the release config |
+
+`alphatest` is worth doing even though it sounds cosmetic: it adds ten instrumentation
+counters inside the DMA fill path, a `swi_qtmdebug` entry and a `Debug` command, so it is
+a real code variant, not just a changed help string.
+
+These patches also stub out the three interactive prompts (the `Press R` timeout, the
+`(a)/(b)` choice and the save-name input), so each run is deterministic — there is no
+keypress to get wrong and no 2-second window to miss.
+
+Procedure per variant, from the QTM directory with `QTMAssemble$Dir` set as above:
+
+```
+*BASIC
+LOAD "QTMv1<A>49"
+*Exec ListPtchRM24        (or ListPtchRM48 / ListPtchAlpha)
+RUN
+```
+
+Check the banner it prints — for `ListPtchRM24` it should read
+`* Assembling QTMv1.49 module *for RasterMan, at 24uS/4chan *`. If it says 32 µS, the
+patch did not take and the run is a release build.
+
+Copy back, keeping the pairs together:
+
+| From the emulator | To |
+|---|---|
+| `listRM24`, `ModRM24` | `ref/listing-rm24.txt`, `ref/QTMModule-rm24` |
+| `listRM48`, `ModRM48` | `ref/listing-rm48.txt`, `ref/QTMModule-rm48` |
+| `listAlpha`, `ModAlpha` | `ref/listing-alpha.txt`, `ref/QTMModule-alpha` |
+
+Do not save the BASIC program in any of these runs — the tokenised originals under `ref/`
+must stay unaltered.
+
+### Why the module has to come from the same run
+
+`PROCvalidatecrc` stamps `MID$(TIME$,5,11)` — the build date — into the help string, and
+for the RasterMan builds it also writes `"r"` as the version letter rather than `"b"`.
+Those bytes are frozen from the reference binary, so a module saved on a different day
+than its listing will not match it.
+
 ## Checking the capture
 
 The module built inside the emulator will **not** match `ref/QTMModule`: with
