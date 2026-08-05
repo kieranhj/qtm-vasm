@@ -9,6 +9,9 @@ tools/*.exe                binary
 # CR and LF bytes; with core.autocrlf=true git would corrupt it as text.
 src/LOGdata                binary
 
+# *Exec'd into BASIC under RISC OS, which terminates text lines with LF.
+tools/emulator/ListPtch    text eol=lf
+
 # Ordinary text
 *.md                       text eol=lf
 *.py                       text eol=lf
