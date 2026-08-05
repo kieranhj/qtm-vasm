@@ -301,27 +301,43 @@ the golden listing, which is why Phase 0 comes first.
 
 ## 5. Deliverables
 
+What was actually built (the plan above is left as written; this is the outcome):
+
 ```
 qtm-vasm/
+  build.py                # regenerate every variant from ref/, assemble, verify
   tools/
-    detok.py              # BASIC V → text (exists, promote)
-    bas2vasm.py           # Phase 1 rule-driven converter
-    verify.py             # cmp + CRC + listing-correlated diff
+    detok.py              # BASIC V → text
+    variants.py           # the four build configurations
+    basexpr.py            # BASIC expression parser: evaluate or re-render
+    bas2vasm.py           # the converter
+    dumpsyms.py           # offset constants → qtm_offsets.h.asm
+    textcomprs.py         # FNcompress, verified against the module → helptext.txt
+    listing.py            # golden listing: parse, reconstruct, SWIs, labels
+    mkamiperiods.py       # period tables from the driver
+    mktoplevel.py         # qtm.asm from PROCassm
+    checkfile.py          # place one file at its real address and diff it
+    verify.py             # assemble one variant and compare
+    emulator/             # how the listings were captured
   ref/
     QTMModule             # shipped 1.49b binary, the acceptance target
-    listing.txt           # golden per-line listing from the BASIC build
-    symbols.txt           # dumped offset constants
-    helptext.bin          # frozen FNcompress outputs
+    QTMModule-{rm24,rm48,alpha}   # references for the non-shipped variants
+    listing{,-rm24,-rm48,-alpha}.txt   # golden per-line listings
+    helptext.txt          # frozen FNcompress outputs
   src/
-    qtm.asm               # top level: config .equs + includes in assembly order
-    swis.h.asm            # 33 SWI numbers
-    qtm_offsets.h.asm     # frozen .equ constants
-    macros.h.asm          # FNlong_adr / FNmega_adr / FNdiv / FNAUdiv
-    qtm_mod.asm  qtm_play.asm  qtm_song.asm  qtm_dma.asm
-    qtm_timer.asm  qtm_vucode.asm  qtm_data.asm
-    LOGdata               # .incbin
-  build.bat / Makefile
+    shared/               # the port — identical for every variant
+      qtm.asm  qtm_mod.asm  qtm_play.asm  qtm_song.asm  qtm_dma.asm
+      qtm_timer.asm  qtm_vucode.asm  qtm_data.asm
+      qtm_amiperiods.asm  swis.h.asm  LOGdata
+    {release,rm24,rm48,alpha}/
+      qtm_offsets.h.asm   # switches and offsets
+      stamp_*.asm         # version stamps, and one STR$-built string
 ```
+
+Differences from the plan worth noting: there is no `macros.h.asm` (`FNlong_adr` is
+expanded inline and the other macro FNs turned out to be dead, §5a), `symbols.txt` never
+existed as a spooled artefact because the offsets proved derivable on the host (§5a), and
+`src/` is split shared/per-variant (§5g).
 
 ---
 
@@ -477,7 +493,7 @@ The five generators were handled as §3 intended — frozen, not re-implemented:
    Each was located in `ref/QTMModule` before being frozen, which is what makes this safe.
 2. **`LOGdata`** — `.incbin` of the original 256-byte file, staged to `src/LOGdata`.
 3. **`PROCinit_amiperiods`** — the 16 × 72 × 2 = 2304-byte period tables, transcribed from
-   the driver's `DCW` block to `src/qtm_amiperiods.asm`.
+   the driver's `DCW` block to `src/shared/qtm_amiperiods.asm`.
 4. **`PROCinit_offsets` / `FNtableoffsets`** — already frozen in Phase 0(b).
 5. **Post-assembly patches** — `helpdate` and `helptextversion` are emitted as the bytes
    observed in the shipped module, since `PROCvalidatecrc` stamps `MID$(TIME$,5,11)` and a
@@ -509,7 +525,7 @@ byte-identity makes wider testing a formality rather than a risk, but it has not
 
 Phase 6 is the remaining work.
 
-**`src/qtm.asm` is generated, not written.** `PROCassm`'s body *is* the module's table of
+**`src/shared/qtm.asm` is generated, not written.** `PROCassm`'s body *is* the module's table of
 contents — its `FNassm_*` calls are what fix the layout order — so the top level is a
 translation of it (`tools/mktoplevel.py`), with those calls mapped onto `.include`. Nothing
 about the order is asserted by hand.

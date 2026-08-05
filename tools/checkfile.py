@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble one converted file in isolation and diff it against ref/QTMModule.
+"""Assemble one converted file in isolation and diff it against the module.
 
 This is what makes Phase 1 tractable file by file.  The golden listing gives an
 address for all 605 labels, so a single translated file can be assembled at its
@@ -11,7 +11,7 @@ On a mismatch the offending word is reported alongside the original source line
 from the listing, which is the point of having captured it.
 
 Usage:
-    checkfile.py src/qtm_timer.asm
+    checkfile.py src/shared/qtm_timer.asm [--variant NAME]
 """
 import re
 import subprocess
@@ -162,7 +162,7 @@ def main():
         print("labels not found in listing: %s" % ", ".join(missing[:10]))
 
     if got == ref:
-        print("\nIDENTICAL to ref/QTMModule[0x%04X:0x%04X]" % (start, start + len(got)))
+        print("\nIDENTICAL to %s[0x%04X:0x%04X]" % (REF.name, start, start + len(got)))
         return 0
 
     # Where did the layout first drift?  Comparing our label addresses against

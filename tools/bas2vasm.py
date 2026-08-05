@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""Table-driven converter: detokenised BBC BASIC assembler -> vasm ARM (Phase 1).
+"""Converter: detokenised BBC BASIC assembler -> vasm ARM.
 
-Scope is deliberately mechanical.  Anything requiring judgement -- the macro
-functions, the frozen data blocks -- is left for later phases and reported
-rather than guessed at.  Run tools/checkfile.py afterwards to diff the result
-against the golden listing; do not trust the output of this on its own.
+Translates one BASIC source file, expanding the macro FNs and substituting the
+frozen data blocks.  Output goes to src/shared/ and is identical for every
+build variant: the switches reach it as .equ symbols and .if blocks rather than
+being folded in.  The exceptions are written to src/<variant>/ as small
+stamp_*.asm includes -- see emit_stamp().
+
+Nothing here is trusted on its own.  tools/checkfile.py places a converted file
+at its real address and diffs it against the reference binary, and build.py
+does the same for the whole module.
 
 Usage:
-    bas2vasm.py <QTM_Timer.bas> [-o out.asm]
+    bas2vasm.py <QTM_Timer.bas> -o <out.asm> [--variant NAME] [--only DEF]
 """
 import argparse
 import re
@@ -39,7 +44,7 @@ class Unhandled(Exception):
 # throwaway pass into a scratch buffer purely to compute offsets, and
 # FNtableoffsets describes the runtime workspace layout rather than module
 # content -- none of its labels appear in the golden listing.  Both are owned
-# by tools/dumpsyms.py, which turns them into src/qtm_offsets.h.asm.
+# by tools/dumpsyms.py, which turns them into src/<variant>/qtm_offsets.h.asm.
 SKIP_DEFS = {"PROCinit_offsets", "FNtableoffsets"}
 
 # FN calls that splice in another source file rather than expanding a macro.
@@ -57,18 +62,18 @@ FN_INCLUDES = {
 
 # Regions the original patches *after* assembly, in PROCvalidatecrc.  Because
 # betatest%=TRUE the module always gets stamped, so what the EQUS assembles is
-# not what ships (PLAN.md 0.4).  These are the bytes observed in ref/QTMModule,
-# frozen rather than reproduced: the patch reads MID$(TIME$,5,11), so a build
-# today would differ.  Each replaces the next EQUS after the named label.
+# not what ships (PLAN.md 0.4).  Each entry replaces the next EQUS after the
+# named label:
 #
 #   helpdate         the leading " (" becomes "b (" -- $(code%+helpdate) is
-#                    rewritten, then code%?helpdate=ASC"b" for the beta build
-#   helptextversion  "v"+ver$ is written at +8 and the beta letter at +13,
+#                    rewritten, then code%?helpdate sets the version letter
+#   helptextversion  "v"+ver$ is written at +8 and the version letter at +13,
 #                    which consumes one of the six CHR$31 padding bytes
-# Populated per variant by derive_post_patch() from that build's own reference
-# binary, rather than hardcoded: the version letter differs ("b" for beta, "a"
-# for alpha, "r" for RasterMan) and so does the stamped date, which is whatever
-# the machine's clock said when the reference was captured.
+#
+# Filled in per variant by derive_post_patch(), reading that build's own
+# reference binary rather than any hardcoded text: the version letter differs
+# ("b" beta, "a" alpha, "r" RasterMan) and so does the stamped date, which is
+# whatever the clock said when the reference was captured.
 POST_PATCH = {}
 
 # Build constants whose value differs between variants.  Any string built from
@@ -102,9 +107,10 @@ POST_FILL = {
                      "PROCinit_amiperiods writes here after assembly"),
 }
 
-# Build-time BASIC variables.  ver$ and dmachoice come from the driver; date$
-# is frozen to the shipped module's date rather than today's, because
-# betatest%=TRUE makes the original stamp the build date (see PLAN.md 0.4).
+# Build-time BASIC string variables, from the driver.  date$ and datestamp$ are
+# placeholders: every string they appear in is a post-assembly patch site, so
+# what lands in the module comes from POST_PATCH (read from the reference
+# binary) and not from these values.  They are kept so the EQUS still evaluates.
 STRING_ENV = {
     "ver$": "1.49",
     "date$": "19 Mar 2023",

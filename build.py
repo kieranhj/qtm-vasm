@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Regenerate the vasm port from ref/ and verify it against the reference binaries.
 
-Everything under src/ is generated, so this script is the build: for each
-variant it recreates src/<variant>/ from the detokenised BASIC and that
-variant's Phase 0 artefacts, then assembles and compares.
+Everything under src/ is generated, so this script is the build.  The
+translated assembly is shared by every variant and goes to src/shared/; only
+the config header and the version stamps are per variant, in src/<variant>/.
+src/shared/ is regenerated for each variant and must come out identical every
+time -- if it does not, something variant-specific has leaked into the shared
+sources, and that is reported as a failure.
 
     python build.py                  all variants
     python build.py release rm48     just these

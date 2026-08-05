@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract the Amiga period tables into src/qtm_amiperiods.asm (Phase 3).
+"""Extract the Amiga period tables into src/shared/qtm_amiperiods.asm.
 
 PROCinit_amiperiods assembles separately, at the fixed offset amigaperiodz and
 with opt%=12 so it never reaches the golden listing.  In the module the tables

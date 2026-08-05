@@ -21,9 +21,13 @@ The release module loads and plays under Arculator, so all five acceptance crite
 PLAN.md §5 are met. Only `release` has a published binary; the other three references were
 captured from the original BASIC (see `tools/emulator/README.md`).
 
-See [`PLAN.md`](PLAN.md) for the plan and findings; §5a–§5e record what each phase actually
+See [`PLAN.md`](PLAN.md) for the plan and findings; §5a–§5g record what each phase actually
 turned up, including the four BBC BASIC assembler behaviours that the original rule table
 missed.
+
+[`OPTIMISATION.md`](OPTIMISATION.md) is where the port leads: the mixer inner loop is now
+editable in the same toolchain as `LSP_ARM250` and `rasterman-vasm`, with four verified
+baselines to regress against.
 
 ## Building
 
@@ -60,6 +64,7 @@ a rule-driven text transformation rather than a metaprogramming exercise.
 
 ```
 PLAN.md                   the plan — read this first
+OPTIMISATION.md           where the mixer headroom is, and how to measure it
 ref/QTMModule             released v1.49b binary; the byte-identity target
 ref/source-tokenised/     original tokenised BASIC V sources, unaltered
 ref/source-text/          detokenised text of the same, for reading and diffing

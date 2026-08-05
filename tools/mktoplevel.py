@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate src/qtm.asm from PROCassm in the driver (Phase 4).
+"""Generate src/shared/qtm.asm from PROCassm in the driver.
 
 PROCassm's body is the module's table of contents: its FNassm_* calls are what
 fix the layout order (Mod, Play, Song, DMA, the inline divide/ARM-check code,

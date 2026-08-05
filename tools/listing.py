@@ -18,9 +18,17 @@ with the address, the assembled value, and the source.  Two useful properties:
     at address 4, against 00000194 in pass 2).  Later lines win, which yields
     pass 2 without having to find the boundary.
 
+There is one listing per build variant, each captured alongside its own
+reference binary; --variant selects which.
+
 Usage:
-    listing.py check     reconstruct and compare against ref/QTMModule
-    listing.py at ADDR   show the listing lines around an address
+    listing.py check              reconstruct and compare against the reference
+    listing.py labels             print every label and its address
+    listing.py swis               write src/shared/swis.h.asm (union of all
+                                  variants, so one header serves every build)
+    listing.py at ADDR            show the listing lines around an address
+
+All except "swis" take --variant NAME; "swis" reads every variant by design.
 """
 import re
 import sys
@@ -189,7 +197,7 @@ def main():
 
     bad = [i for i in range(len(ref))
            if seen[i] and not excused[i] and buf[i] != ref[i]]
-    print("\nmismatches vs ref/QTMModule: %d" % len(bad))
+    print("\nmismatches vs %s: %d" % (REF.name, len(bad)))
     if bad:
         # Group into runs so the date patch shows up as one region, not 18 bytes.
         runs, start, prev = [], bad[0], bad[0]

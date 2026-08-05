@@ -15,7 +15,10 @@ wrong, that assertion fails rather than silently producing a bad header.
 
 Usage:
     dumpsyms.py check     derive, run the assertion, print the symbols
-    dumpsyms.py emit      write src/qtm_offsets.h.asm
+    dumpsyms.py emit      write src/<variant>/qtm_offsets.h.asm
+
+Both accept --variant NAME (see tools/variants.py); the offsets are the same
+for every variant but the build switches are not.
 """
 import re
 import sys

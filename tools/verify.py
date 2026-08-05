@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble the vasm port and compare it against ref/QTMModule -- Phase 0(d).
+"""Assemble one variant of the vasm port and compare it against its reference.
 
 Byte-for-byte equality with the shipped module is the acceptance test; the CRC
 is reported only for parity with the original build's harness (and note that the
@@ -13,8 +13,8 @@ an address.  The listing is optional: without it the diff still works, it just
 cannot name the line.
 
 Usage:
-    verify.py             assemble, then compare
-    verify.py --no-build  compare an existing build/qtm.bin
+    verify.py [--variant NAME]             assemble, then compare
+    verify.py [--variant NAME] --no-build  compare an existing build/qtm-<variant>.bin
 """
 import re
 import subprocess

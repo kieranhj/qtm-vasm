@@ -1,3 +1,13 @@
+#!/usr/bin/env python3
+"""Detokenise BBC BASIC V, as shipped in ref/source-tokenised/.
+
+Handles the C6/C7/C8 extension tables and the 8D line-number encoding.  Its
+output is ref/source-text/, which is the input to the whole conversion, so it
+is checked in rather than regenerated during a build.
+
+Usage:
+    detok.py <tokenised-file> [output-file]
+"""
 import sys
 
 # BBC BASIC (Acorn 6502/ARM BASIC V) token table, 0x7F-0xFF
