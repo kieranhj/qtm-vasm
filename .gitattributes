@@ -10,7 +10,7 @@ tools/*.exe                binary
 src/LOGdata                binary
 
 # *Exec'd into BASIC under RISC OS, which terminates text lines with LF.
-tools/emulator/ListPtch    text eol=lf
+tools/emulator/ListPtch*   text eol=lf
 
 # Ordinary text
 *.md                       text eol=lf
