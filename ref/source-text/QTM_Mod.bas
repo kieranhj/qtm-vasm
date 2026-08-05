@@ -2787,7 +2787,7 @@
 27880 .helpver
 27890 EQUS    ver$
 27900 .helpdate
-27910 EQUS    " ("+date$+") © Steve Harrison "
+27910 EQUS    " ("+date$+") Â© Steve Harrison "
 27920 .helpchar
 27930 ]
 27931 IF betatest% THEN [OPT opt%:EQUS" !BETA TEST VERSION!":]
@@ -3022,7 +3022,7 @@
 30210 .hlp_qtm
 30220 EQUS    "+"+STRING$(74,"-")+"+"+CHR$13
 30230 EQUS    "|"+STRING$(9,CHR$9)+STRING$(3,CHR$31)+"|"+CHR$13
-30240 EQUS    "|"+STRING$(3,CHR$9)+STRING$(0,CHR$31)+"»»» QTM  -  Q The Music «««"+STRING$(3,CHR$9)+STRING$(3,CHR$31)+"|"+CHR$13
+30240 EQUS    "|"+STRING$(3,CHR$9)+STRING$(0,CHR$31)+"Â»Â»Â»Â QTMÂ Â -Â Â QÂ TheÂ MusicÂ Â«Â«Â«"+STRING$(3,CHR$9)+STRING$(3,CHR$31)+"|"+CHR$13
 30250 ]:IF alphatest% OR betatest% THEN
 30260  [OPT opt%
 30270  EQUS "|"+STRING$(9,CHR$9)+STRING$(3,CHR$31)+"|"+CHR$13
@@ -3036,7 +3036,7 @@
 30350 EQUS    "|"+CHR$9+STRING$(3,CHR$31)+"---> http://www.phlamethrower.co.uk/riscos/qtm.php <---"+CHR$9+STRING$(3,CHR$31)+"|"+CHR$13
 30360 EQUS    "|"+STRING$(9,CHR$9)+CHR$31+CHR$31+CHR$31+"|"+CHR$13
 30370 .helptextversion
-30380 EQUS    "|"+STRING$(2,CHR$9)+STRING$(6,CHR$31)+"v"+ver$+" © 1993-2023 Steve Harrison"+STRING$(3,CHR$9)+STRING$(3,CHR$31)+"|"+CHR$13
+30380 EQUS    "|"+STRING$(2,CHR$9)+STRING$(6,CHR$31)+"v"+ver$+" Â© 1993-2023 Steve Harrison"+STRING$(3,CHR$9)+STRING$(3,CHR$31)+"|"+CHR$13
 30390 ]:IF qtmrast% THEN [OPT opt%:EQUS "|"+CHR$9+"Special "+STR$maxchans+"-channel, ":.qtmrmtext:EQUS STR$dmachoice+"uS version, for use only with RasterMan"+CHR$9+STRING$(3,CHR$31)+"|"+CHR$13:]
 30400 [OPT opt%
 30410 EQUS    "|"+STRING$(9,CHR$9)+CHR$31+CHR$31+CHR$31+"|"+CHR$13

@@ -377,7 +377,7 @@
  3770 IF crcvalue%<>paulvigay32bitcrc% OR alphatest% OR betatest% OR qtmrast% THEN
  3780  date$=MID$(TIME$,5,11)
  3790  REM *H.Modules patch up
- 3800  $(code%+helpdate)="c ("+date$+") © Steve Harrison"   :REM if not standard QTM, add "c" = custom
+ 3800  $(code%+helpdate)="c ("+date$+") Â© Steve Harrison"   :REM if not standard QTM, add "c" = custom
  3810  code%?helpchar=0
  3820  IF betatest% code%?helpdate=ASC"b":code%?helpchar=ASC" " :REM if beta, replace "c" with "b"
  3830  IF alphatest% code%?helpdate=ASC"a":code%?helpchar=ASC" ":REM if alpha, replace "c" with "a"

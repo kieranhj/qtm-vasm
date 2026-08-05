@@ -79,4 +79,12 @@ def detok(data):
     return "\n".join(out)
 
 if __name__ == "__main__":
-    print(detok(open(sys.argv[1], "rb").read()))
+    # Usage: detok.py <tokenised-file> [output-file]
+    # Output is always written with LF endings, in binary mode: on Windows,
+    # text-mode stdout would emit CRLF and make the derived files churn under
+    # git's autocrlf handling.
+    text = detok(open(sys.argv[1], "rb").read()) + "\n"
+    if len(sys.argv) > 2:
+        open(sys.argv[2], "wb").write(text.encode("utf-8"))
+    else:
+        sys.stdout.buffer.write(text.encode("utf-8"))
