@@ -1,0 +1,46 @@
+Usage and distribution conditions for QTM v1.49b © Steve Harrison, 1993-2023
+----------------------------------------------------------------------------
+
+ ** Please note: this licence overrides any previous QTM licence details **
+
+Much time and effort has gone into the making of QTM, so I would be grateful
+if you would follow the conditions below for the distribution and use of the
+QTM player module and source code.
+
+You are free to use the QTM module and source code as you please, so long as
+you understand the author cannot be help responsible for any harm to the user
+or user's data that may result from use of QTM or its source code (or parts
+thereof).
+
+
+QTM distribution conditions  The QTM module is (c) Steve Harrison 1993-2023
+---------------------------  and has been released as FREEWARE, so can be
+distributed freely over the internet, forums, through PD libraries/etc., as
+long as it is not sold for a profit.
+
+Use of the QTM module in PD/FREEWARE and COMMERCIAL applications, games,
+demos, etc. is perfectly acceptable so long as the original author, Steve
+Harrison, is credited. If possible include the QTM web address (curretly:
+www.pi-star.co.uk/qtm ). The file 'QTMModule' may be copied in to the
+program's own directory or combined into the program's code.
+
+Where the QTM module is to be used in COMMERCIAL releases, the only added
+condition to its use is that a copy of the final commercial application is
+sent to Steve at the address in the 'Contacts' file. Royalties are NOT
+requested for commercial uses of QTM.
+
+
+Source code  The full source code of QTM is released into the public domain
+-----------  under the following conditions: The UNALTERED source code may be
+freely distributed as for the QTM module conditions above. If you wish to
+distribute *modified* versions of the QTM module, or *modified* versions of
+source code, the additional condition is that this is clear in the
+accompanying information - please also drop me a line to me to let me know.
+The distribution conditions remain as explained for the QTM module (above).
+
+
+I hope this doesn't sound too legally minded, but basically I want QTM to be
+used wherever possible, and I encourage people to modify the source code for
+the better - especially when the QTM module doesn't provide a function that
+you need!
+                                                        Steve Harrison, 2023

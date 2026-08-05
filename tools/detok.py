@@ -1,0 +1,82 @@
+import sys
+
+# BBC BASIC (Acorn 6502/ARM BASIC V) token table, 0x7F-0xFF
+TOK = {
+0x7F:"OTHERWISE",0x80:"AND",0x81:"DIV",0x82:"EOR",0x83:"MOD",0x84:"OR",0x85:"ERROR",
+0x86:"LINE",0x87:"OFF",0x88:"STEP",0x89:"SPC",0x8A:"TAB(",0x8B:"ELSE",0x8C:"THEN",
+0x8D:"<lineno>",0x8E:"OPENIN",0x8F:"PTR",
+0x90:"PAGE",0x91:"TIME",0x92:"LOMEM",0x93:"HIMEM",0x94:"ABS",0x95:"ACS",0x96:"ADVAL",
+0x97:"ASC",0x98:"ASN",0x99:"ATN",0x9A:"BGET",0x9B:"COS",0x9C:"COUNT",0x9D:"DEG",
+0x9E:"ERL",0x9F:"ERR",0xA0:"EVAL",0xA1:"EXP",0xA2:"EXT",0xA3:"FALSE",0xA4:"FN",
+0xA5:"GET",0xA6:"INKEY",0xA7:"INSTR(",0xA8:"INT",0xA9:"LEN",0xAA:"LN",0xAB:"LOG",
+0xAC:"NOT",0xAD:"OPENUP",0xAE:"OPENOUT",0xAF:"PI",
+0xB0:"POINT(",0xB1:"POS",0xB2:"RAD",0xB3:"RND",0xB4:"SGN",0xB5:"SIN",0xB6:"SQR",
+0xB7:"TAN",0xB8:"TO",0xB9:"TRUE",0xBA:"USR",0xBB:"VAL",0xBC:"VPOS",0xBD:"CHR$",
+0xBE:"GET$",0xBF:"INKEY$",
+0xC0:"LEFT$(",0xC1:"MID$(",0xC2:"RIGHT$(",0xC3:"STR$",0xC4:"STRING$(",0xC5:"EOF",
+0xC6:"<C6>",0xC7:"<C7>",0xC8:"<C8>",0xC9:"WHEN",0xCA:"OF",0xCB:"ENDCASE",
+0xCC:"ELSE",0xCD:"ENDIF",0xCE:"ENDWHILE",0xCF:"PTR",
+0xD0:"PAGE",0xD1:"TIME",0xD2:"LOMEM",0xD3:"HIMEM",0xD4:"SOUND",0xD5:"BPUT",
+0xD6:"CALL",0xD7:"CHAIN",0xD8:"CLEAR",0xD9:"CLOSE",0xDA:"CLG",0xDB:"CLS",
+0xDC:"DATA",0xDD:"DEF",0xDE:"DIM",0xDF:"DRAW",
+0xE0:"END",0xE1:"ENDPROC",0xE2:"ENVELOPE",0xE3:"FOR",0xE4:"GOSUB",0xE5:"GOTO",
+0xE6:"GCOL",0xE7:"IF",0xE8:"INPUT",0xE9:"LET",0xEA:"LOCAL",0xEB:"MODE",0xEC:"MOVE",
+0xED:"NEXT",0xEE:"ON",0xEF:"VDU",
+0xF0:"PLOT",0xF1:"PRINT",0xF2:"PROC",0xF3:"READ",0xF4:"REM",0xF5:"REPEAT",
+0xF6:"REPORT",0xF7:"RESTORE",0xF8:"RETURN",0xF9:"RUN",0xFA:"STOP",0xFB:"COLOUR",
+0xFC:"TRACE",0xFD:"UNTIL",0xFE:"WIDTH",0xFF:"OSCLI",
+}
+# C6/C7/C8 extension tables (BASIC V)
+C6 = {0x8E:"SUM",0x8F:"BEAT"}
+C7 = {0x8E:"APPEND",0x8F:"AUTO",0x90:"CRUNCH",0x91:"DELETE",0x92:"EDIT",0x93:"HELP",
+      0x94:"LIST",0x95:"LOAD",0x96:"LVAR",0x97:"NEW",0x98:"OLD",0x99:"RENUMBER",
+      0x9A:"SAVE",0x9B:"TEXTLOAD",0x9C:"TEXTSAVE",0x9D:"TWIN",0x9E:"TWINO",0x9F:"INSTALL"}
+C8 = {0x8E:"CASE",0x8F:"CIRCLE",0x90:"FILL",0x91:"ORIGIN",0x92:"POINT",0x93:"RECTANGLE",
+      0x94:"SWAP",0x95:"WHILE",0x96:"WAIT",0x97:"MOUSE",0x98:"QUIT",0x99:"SYS",
+      0x9A:"INSTALL",0x9B:"LIBRARY",0x9C:"TINT",0x9D:"ELLIPSE",0x9E:"BEATS",
+      0x9F:"TEMPO",0xA0:"VOICES",0xA1:"VOICE",0xA2:"STEREO",0xA3:"OVERLAY"}
+
+def detok(data):
+    out = []
+    i = 0
+    while i < len(data):
+        if data[i] != 0x0D:
+            i += 1
+            continue
+        if i + 1 < len(data) and data[i+1] == 0xFF:
+            break
+        if i + 3 >= len(data):
+            break
+        ln = (data[i+1] << 8) | data[i+2]
+        length = data[i+3]
+        body = data[i+4:i+length]
+        s = []
+        j = 0
+        instr = False
+        while j < len(body):
+            c = body[j]
+            if c == ord('"'):
+                instr = not instr
+                s.append('"'); j += 1; continue
+            if instr or c < 0x7F:
+                s.append(chr(c)); j += 1; continue
+            if c == 0x8D:  # encoded line number, 3 following bytes
+                if j + 3 < len(body):
+                    b1, b2, b3 = body[j+1], body[j+2], body[j+3]
+                    lo = (b2 ^ ((b1 << 2) & 0xC0)) & 0xFF
+                    hi = (b3 ^ ((b1 << 4) & 0xC0)) & 0xFF
+                    s.append(str((hi << 8) | lo))
+                    j += 4; continue
+                j += 1; continue
+            if c in (0xC6, 0xC7, 0xC8):
+                tbl = {0xC6: C6, 0xC7: C7, 0xC8: C8}[c]
+                if j + 1 < len(body) and body[j+1] in tbl:
+                    s.append(tbl[body[j+1]]); j += 2; continue
+                j += 1; continue
+            s.append(TOK.get(c, "<%02X>" % c)); j += 1
+        out.append("%5d %s" % (ln, "".join(s)))
+        i += length
+    return "\n".join(out)
+
+if __name__ == "__main__":
+    print(detok(open(sys.argv[1], "rb").read()))

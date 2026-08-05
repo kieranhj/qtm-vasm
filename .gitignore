@@ -1,0 +1,6 @@
+build/
+*.bin
+*.o
+compile*.txt
+listing-scratch/
+__pycache__/
