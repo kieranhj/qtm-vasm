@@ -20,10 +20,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import listing as golden
+import variants
 
 ROOT = Path(__file__).resolve().parent.parent
 VASM = ROOT / "tools" / "vasmarm_std_win32.exe"
-REF = ROOT / "ref" / "QTMModule"
+REF = variants.module_path(variants.DEFAULT)
 WORK = ROOT / "build"
 
 LABEL_DEF = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):")
@@ -41,11 +42,11 @@ def defined_labels(text):
     return [m.group(1) for m in (LABEL_DEF.match(l) for l in text.splitlines()) if m]
 
 
-def header_symbols():
+def header_symbols(src_root):
     """Names already provided by the shared headers, so not external."""
     names = set()
     for name in ("qtm_offsets.h.asm", "swis.h.asm"):
-        path = ROOT / "src" / name
+        path = src_root / name
         if path.exists():
             for m in re.finditer(r"^\s*\.equ\s+([A-Za-z_][A-Za-z0-9_]*)",
                                  path.read_text(encoding="utf-8"), re.M):
@@ -82,7 +83,16 @@ def referenced(text):
 
 
 def main():
-    src = Path(sys.argv[1])
+    global REF
+    argv = list(sys.argv[1:])
+    variant = variants.DEFAULT
+    if "--variant" in argv:
+        i = argv.index("--variant")
+        variant = argv[i + 1]
+        del argv[i:i + 2]
+    golden.use(variant)
+    REF = variants.module_path(variant)
+    src = Path(argv[0])
     text = src.read_text(encoding="utf-8")
 
     cells, labels, lines = golden.parse()
@@ -92,7 +102,7 @@ def main():
     mine = defined_labels(text)
     included = ""
     for inc in re.findall(r'^\s*\.include\s+"([^"]+)"', text, re.M):
-        path = ROOT / "src" / Path(inc).name
+        path = src.parent / Path(inc).name
         if path.exists():
             body = path.read_text(encoding="utf-8")
             mine += defined_labels(body)
@@ -105,7 +115,7 @@ def main():
     missing = [n for n in mine if n not in labels]
 
     # Everything referenced but not defined here, that the listing knows about.
-    externals = sorted(referenced(text + included) - set(mine) - header_symbols())
+    externals = sorted(referenced(text + included) - set(mine) - header_symbols(src.parent))
     stubs = ["; Auto-generated stubs: labels defined in other files, taken from",
              "; the golden listing so this file can be placed and checked alone.",
              ""]
@@ -124,15 +134,15 @@ def main():
     top.write_text(
         '\t.include "%s"\n\t.include "%s"\n\t.include "%s"\n'
         '\t.org 0x%X\n\t.include "%s"\n'
-        % ((ROOT / "src" / "qtm_offsets.h.asm").as_posix(),
-           (ROOT / "src" / "swis.h.asm").as_posix(),
+        % ((src.parent / "qtm_offsets.h.asm").as_posix(),
+           (src.parent / "swis.h.asm").as_posix(),
            stub_path.as_posix(), start, src.as_posix()),
         encoding="utf-8", newline="\n")
 
     out = WORK / (src.stem + ".bin")
     lst = WORK / (src.stem + ".lst")
     r = subprocess.run([str(VASM), "-m250", "-Fbin", "-o", str(out),
-                        "-I", str(ROOT / "src"), "-L", str(lst), str(top)],
+                        "-I", str(src.parent), "-L", str(lst), str(top)],
                        capture_output=True, text=True)
     errors = [l for l in (r.stdout + r.stderr).splitlines()
               if "error" in l.lower() or l.startswith(">")]

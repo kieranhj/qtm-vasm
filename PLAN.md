@@ -537,6 +537,46 @@ Two things this phase turned up:
 Three `FNlong_adr` sites remain deferred, all inside `qtmrast` blocks this variant
 excludes. They are Phase 6 work, not gaps in this build.
 
+## 5f. Phase 6 outcome — all four variants byte-identical
+
+```
+release  26624 bytes  crc 9AA00EE5  IDENTICAL
+rm24     27152 bytes  crc 94B863BD  IDENTICAL
+rm48     27028 bytes  crc D7CB9D54  IDENTICAL
+alpha    26824 bytes  crc BE7CF127  IDENTICAL
+```
+
+Only the release build has a published binary; the other three references were captured
+from the original BASIC alongside their listings (`tools/emulator/README.md`). Each
+listing was validated against its own module first — reconstructing from it mismatches in
+**0 bytes** across the ~75% it covers, the same check that validated the release capture.
+
+`tools/variants.py` holds the four configurations and the paths to their artefacts.
+Everything downstream takes `--variant`, and each build gets its own `src/<variant>/`,
+because a single source cannot serve all four: constants like `dma` are folded at
+conversion time, and the `FNlong_adr` sites differ per build.
+
+**`alphatest` is a real code variant**, not a changed help string as §6 implied. It adds
+ten instrumentation counters *inside* the DMA fill path, a `swi_qtmdebug` entry and a
+`Debug` command — 200 bytes in total, and of some interest for the mixer work since it
+instruments the hot loop.
+
+The 22 `FNlong_adr` call sites are split across the variants rather than shared; each
+build assembles its own subset and the rest are reported as not assembled:
+
+| Sites | Gated by | In |
+|---|---|---|
+| 19 | always | all builds |
+| `qtmrmtext` | `qtmrast` | rm24, rm48 |
+| 2 × `CIAhandler` | `NOT qtmrast` | release, alpha |
+| `a2_jumptable`, `unroll_a2_DMA` | `alphatest` | alpha |
+
+The post-assembly help patches are no longer hardcoded. They are read out of each
+variant's own reference binary at generation time, since both the version letter (`b`
+beta, `a` alpha, `r` RasterMan) and the stamped build date vary. The captured references
+carry `05 Aug 1992` — the emulator's clock — which is a good illustration of why §0.4's
+"freeze the observed bytes" rule matters more than reproducing the patch logic.
+
 ## 6. Effort and sequencing note
 
 The v1.49b choice matters enormously. Porting **v1.45** would have meant reproducing

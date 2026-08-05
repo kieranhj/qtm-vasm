@@ -19,12 +19,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import bas2vasm
 import dumpsyms
+import variants
 
 ROOT = Path(__file__).resolve().parent.parent
 EXPECT_VALUES = 16 * 72          # 16 tuning tables of 72 notes
 
 
 def main():
+    variant = variants.DEFAULT
+    if "--variant" in sys.argv:
+        variant = sys.argv[sys.argv.index("--variant") + 1]
+    dumpsyms.use(variant)
     src = [p for p in glob.glob(str(ROOT / "ref/source-text/*.bas"))
            if "v1" in Path(p).name][0]
     lines = Path(src).read_text(encoding="utf-8").split("\n")
@@ -73,7 +78,8 @@ def main():
         % (EXPECT_VALUES // 72, EXPECT_VALUES * 2),
         "",
     ]
-    path = ROOT / "src" / "qtm_amiperiods.asm"
+    path = variants.src_dir(variant) / "qtm_amiperiods.asm"
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(header + out) + "\n", encoding="utf-8", newline="\n")
     print("wrote %s (%d values, %d bytes)" % (path, count, count * 2))
     return 0

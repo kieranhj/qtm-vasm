@@ -7,19 +7,19 @@ source to plain [vasm](http://sun.hasenbraten.de/vasm/) ARM assembler.
 (26 624 bytes, dated 19 Mar 2023), which is checked in at `ref/QTMModule` as the acceptance
 target.
 
-**Status: achieved.** `python build.py` regenerates the port from `ref/` and verifies it:
+**Status: achieved, for all four build variants.** `python build.py` regenerates the port
+from `ref/` and verifies each one byte-for-byte:
 
-```
-size   built 26624, reference 26624  OK
-crc    built 9AA00EE5, expected 9AA00EE5  OK
-IDENTICAL -- acceptance test passed.
-```
+| Variant | Bytes | CRC | |
+|---|---|---|---|
+| `release` | 26 624 | `9AA00EE5` | the shipped build |
+| `rm24` | 27 152 | `94B863BD` | RasterMan, 24 µs, 4-channel |
+| `rm48` | 27 028 | `D7CB9D54` | RasterMan, 48 µs, 4/8-channel |
+| `alpha` | 26 824 | `BE7CF127` | alpha test: DMA instrumentation, debug SWI |
 
-The built module loads and plays under Arculator, so all five acceptance criteria in
-PLAN.md §5 are met.
-
-Still outstanding: the Phase 6 build variants — three `FNlong_adr` sites inside `qtmrast`
-blocks are deferred, since this build excludes them.
+The release module loads and plays under Arculator, so all five acceptance criteria in
+PLAN.md §5 are met. Only `release` has a published binary; the other three references were
+captured from the original BASIC (see `tools/emulator/README.md`).
 
 See [`PLAN.md`](PLAN.md) for the plan and findings; §5a–§5e record what each phase actually
 turned up, including the four BBC BASIC assembler behaviours that the original rule table
@@ -28,13 +28,18 @@ missed.
 ## Building
 
 ```
-python build.py            regenerate everything from ref/, assemble, verify
-python build.py --check    verify the current src/ without regenerating
+python build.py                  all four variants
+python build.py release rm48     just these
+python build.py --check          verify without regenerating
 ```
 
 **Everything under `src/` is generated** — from the detokenised BASIC in `ref/source-text/`
-plus the Phase 0 artefacts (`ref/listing.txt`, `ref/helptext.txt`). Edit the tools, not the
-output. `tools/checkfile.py src/qtm_dma.asm` places a single file at its real address and
+plus each variant's golden listing. Edit the tools, not the output. Each variant gets its
+own `src/<variant>/`, because a single source cannot serve all four: constants such as
+`dma` are folded at conversion time and the `FNlong_adr` sites differ per build.
+`tools/variants.py` defines the configurations.
+
+`tools/checkfile.py src/release/qtm_dma.asm` places a single file at its real address and
 diffs it against the module, which is how each was brought up individually.
 
 ## Why
@@ -56,16 +61,18 @@ ref/QTMModule             released v1.49b binary; the byte-identity target
 ref/source-tokenised/     original tokenised BASIC V sources, unaltered
 ref/source-text/          detokenised text of the same, for reading and diffing
 ref/docs/                 QTM licence, copyright, history, technical docs
-ref/listing.txt           golden per-line listing from the original build
+ref/listing*.txt          golden per-line listings, one per variant
+ref/QTMModule-*           reference binaries for the non-shipped variants
 ref/helptext.txt          frozen FNcompress outputs (generated)
 build.py                  regenerate everything and verify
 tools/detok.py            BBC BASIC V detokeniser
 tools/bas2vasm.py         BBC BASIC assembler → vasm converter
 tools/checkfile.py        place one file at its real address and diff it
-tools/verify.py           assemble and compare against ref/QTMModule
+tools/variants.py         the four build configurations
+tools/verify.py           assemble and compare against the reference binary
 tools/emulator/           how ref/listing.txt was captured, under Arculator
 tools/vasmarm_std_win32.exe   vasm 1.8k, ARM backend 0.4h, std syntax
-src/                      the vasm port (generated — see Building)
+src/<variant>/            the vasm port, one directory per build variant
 build/                    build output (gitignored)
 ```
 

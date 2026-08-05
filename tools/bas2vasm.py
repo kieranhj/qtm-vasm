@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import basexpr
 import dumpsyms
+import variants
 
 LINENO = re.compile(r"^\s*\d+ ?")
 
@@ -64,12 +65,27 @@ FN_INCLUDES = {
 #                    rewritten, then code%?helpdate=ASC"b" for the beta build
 #   helptextversion  "v"+ver$ is written at +8 and the beta letter at +13,
 #                    which consumes one of the six CHR$31 padding bytes
-POST_PATCH = {
-    "helpdate": b"b (19 Mar 2023) \xa9 Steve Harrison",
-    "helptextversion":
-        b"|\t\t\x1f\x1f\x1f\x1f\x1fv1.49b \xa9 1993-2023 Steve Harrison"
-        b"\t\t\t\x1f\x1f\x1f|\r",
-}
+# Populated per variant by derive_post_patch() from that build's own reference
+# binary, rather than hardcoded: the version letter differs ("b" for beta, "a"
+# for alpha, "r" for RasterMan) and so does the stamped date, which is whatever
+# the machine's clock said when the reference was captured.
+POST_PATCH = {}
+
+
+def derive_post_patch(labels, module):
+    """Read the patched help bytes straight out of the reference binary.
+
+    helpdate runs to helpchar; helptextversion runs to the CHR$13 that ends its
+    EQUS.  Both are what PROCvalidatecrc leaves behind, so they are observed
+    rather than reconstructed.
+    """
+    patch = {}
+    if "helpdate" in labels and "helpchar" in labels:
+        patch["helpdate"] = module[labels["helpdate"]:labels["helpchar"]]
+    if "helptextversion" in labels:
+        start = labels["helptextversion"]
+        patch["helptextversion"] = module[start:module.index(b"\r", start) + 1]
+    return patch
 
 # Blocks reserved with "P%+=n" and filled in after assembly, which therefore
 # hold real data in the shipped module rather than the zeros the reservation
@@ -649,9 +665,10 @@ class Converter:
         mis-pairing is caught rather than silently emitted.
         """
         if not self.active():
-            # Excluded from this build (a RasterMan-only path), so the original
-            # never assembled it and there is no site to match against.
-            self.note(lineno, "FNlong_adr in an excluded block (Phase 6)", stmt)
+            # Inside a conditional this variant switches off, so the original
+            # never assembled it and there is no listing site to match against.
+            # Each variant uses its own subset of the 22 call sites.
+            self.note(lineno, "not assembled in this variant", stmt)
             return
         if not self.adr_sites:
             self.note(lineno, "no FNlong_adr site left in the listing", stmt)
@@ -896,7 +913,10 @@ def main():
     ap.add_argument("-o", "--output")
     ap.add_argument("--only", metavar="DEF",
                     help="convert just one DEF block, e.g. PROCassm")
+    ap.add_argument("--variant", default=variants.DEFAULT,
+                    help="build variant (see tools/variants.py)")
     args = ap.parse_args()
+    dumpsyms.use(args.variant)
 
     env, _, labels, _ = dumpsyms.derive()
     for name, value, _ in dumpsyms.CONFIG:
@@ -927,7 +947,11 @@ def main():
     # this file's address range -- found from the labels it defines -- so the
     # sites pair up with the calls in source order.
     import listing as golden
+    golden.use(args.variant)
     _, conv.golden_labels, _ = golden.parse()
+    POST_PATCH.clear()
+    POST_PATCH.update(derive_post_patch(
+        conv.golden_labels, variants.module_path(args.variant).read_bytes()))
     defined = [LINENO.sub("", ln).strip()[1:].split()[0].rstrip("%")
                for ln in text.split("\n")
                if re.match(r"^\s*\d+ ?\.[A-Za-z_]", ln)]

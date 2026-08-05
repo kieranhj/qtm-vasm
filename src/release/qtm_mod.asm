@@ -176,7 +176,7 @@ initqtm:
 	.if qtmrast
 	.byte	"8-chan/",0x00
 	.p2align 2
-	; TODO(172): FNlong_adr in an excluded block (Phase 6) -- FNlong_adr("",0,qtmrmtext)
+	; TODO(172): not assembled in this variant -- FNlong_adr("",0,qtmrmtext)
 	MOV	R1,#41
 	SWI	XOS_WriteN
 	SWI	XOS_NewLine
@@ -1485,8 +1485,8 @@ swi_qtmsongstatus:
 	.if alphatest
 swi_qtmdebug:                                        ;alpha test debug SWI
 	STMFD	R13!,{R3-R7,R14}
-	; TODO(1538): FNlong_adr in an excluded block (Phase 6) -- FNlong_adr("",0,a2_jumptable)
-	; TODO(1539): FNlong_adr in an excluded block (Phase 6) -- FNlong_adr("",1,unroll_a2_DMA)
+	; TODO(1538): not assembled in this variant -- FNlong_adr("",0,a2_jumptable)
+	; TODO(1539): not assembled in this variant -- FNlong_adr("",1,unroll_a2_DMA)
 	MOV	R2,R12
 	LDMFD	R13!,{R3-R7,PC}
 	.endif

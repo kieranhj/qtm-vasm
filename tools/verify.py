@@ -22,15 +22,25 @@ import sys
 import zlib
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import variants
+
 ROOT = Path(__file__).resolve().parent.parent
 VASM = ROOT / "tools" / "vasmarm_std_win32.exe"
-TOP = ROOT / "src" / "qtm.asm"
-OUT = ROOT / "build" / "qtm.bin"
-REF = ROOT / "ref" / "QTMModule"
-LISTING = ROOT / "ref" / "listing.txt"
+VARIANT = variants.DEFAULT
+if "--variant" in sys.argv:
+    VARIANT = sys.argv[sys.argv.index("--variant") + 1]
 
-EXPECT_SIZE = 26624
-EXPECT_CRC = 0x9AA00EE5          # inverted zlib CRC-32 of ref/QTMModule
+TOP = variants.src_dir(VARIANT) / "qtm.asm"
+OUT = ROOT / "build" / ("qtm-%s.bin" % VARIANT)
+REF = variants.module_path(VARIANT)
+LISTING = variants.listing_path(VARIANT)
+
+# Taken from the reference binary rather than asserted: only the release build
+# has a published size and CRC, and the variants' references were captured
+# locally (see tools/emulator/README.md).
+EXPECT_SIZE = REF.stat().st_size
+EXPECT_CRC = ~zlib.crc32(REF.read_bytes()) & 0xFFFFFFFF
 
 CONTEXT = 16                     # bytes either side of a mismatch
 
@@ -44,7 +54,8 @@ def build():
         print("no %s yet -- nothing to assemble (Phase 1 not started)" % TOP)
         return False
     OUT.parent.mkdir(exist_ok=True)
-    cmd = [str(VASM), "-m250", "-Fbin", "-o", str(OUT), str(TOP)]
+    cmd = [str(VASM), "-m250", "-Fbin", "-I", str(TOP.parent),
+           "-o", str(OUT), str(TOP)]
     print("$ " + " ".join(cmd))
     r = subprocess.run(cmd, capture_output=True, text=True)
     sys.stdout.write(r.stdout)

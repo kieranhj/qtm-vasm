@@ -17,6 +17,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import variants
+
 ROOT = Path(__file__).resolve().parent.parent
 
 PROLOGUE = """\
@@ -35,11 +38,18 @@ PROLOGUE = """\
 
 
 def main():
-    driver = sys.argv[1]
-    scratch = ROOT / "build" / "procassm.asm"
+    argv = list(sys.argv[1:])
+    variant = variants.DEFAULT
+    if "--variant" in argv:
+        i = argv.index("--variant")
+        variant = argv[i + 1]
+        del argv[i:i + 2]
+    driver = argv[0]
+    scratch = ROOT / "build" / ("procassm-%s.asm" % variant)
     scratch.parent.mkdir(exist_ok=True)
     r = subprocess.run([sys.executable, str(ROOT / "tools" / "bas2vasm.py"),
-                        driver, "--only", "PROCassm", "-o", str(scratch)],
+                        driver, "--only", "PROCassm", "--variant", variant,
+                        "-o", str(scratch)],
                        capture_output=True, text=True)
     sys.stderr.write(r.stderr)
     if r.returncode != 0:
@@ -47,7 +57,7 @@ def main():
 
     # Drop bas2vasm's own two-line banner; this file carries its own.
     body = scratch.read_text(encoding="utf-8").split("\n")[3:]
-    path = ROOT / "src" / "qtm.asm"
+    path = variants.src_dir(variant) / "qtm.asm"
     path.write_text(PROLOGUE + "\n".join(body).rstrip() + "\n",
                     encoding="utf-8", newline="\n")
     print("wrote %s" % path)

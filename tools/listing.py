@@ -26,9 +26,24 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import variants
+
 ROOT = Path(__file__).resolve().parent.parent
-LISTING = ROOT / "ref" / "listing.txt"
-REF = ROOT / "ref" / "QTMModule"
+LISTING = variants.listing_path(variants.DEFAULT)
+REF = variants.module_path(variants.DEFAULT)
+
+
+CURRENT = variants.DEFAULT
+
+
+def use(name):
+    """Point this module at one variant's listing and reference binary."""
+    global LISTING, REF, CURRENT
+    CURRENT = name
+    LISTING = variants.listing_path(name)
+    REF = variants.module_path(name)
 
 # Post-assembly fills, which by definition cannot appear in the listing:
 # PROCinit_amiperiods assembles with opt%=12 (listing off) and LOGdata is
@@ -104,7 +119,13 @@ def reconstruct(cells, size):
 
 
 def main():
-    action = sys.argv[1] if len(sys.argv) > 1 else "check"
+    argv = list(sys.argv[1:])
+    if "--variant" in argv:
+        i = argv.index("--variant")
+        use(argv[i + 1])
+        del argv[i:i + 2]
+    action = argv[0] if argv else "check"
+    sys.argv = [sys.argv[0]] + argv
     cells, labels, lines = parse()
 
     if action == "swis":
@@ -121,7 +142,7 @@ def main():
                ""]
         for name in sorted(swis):
             out.append("    .equ %-28s,0x%06X" % (name, swis[name]))
-        path = ROOT / "src" / "swis.h.asm"
+        path = variants.src_dir(CURRENT) / "swis.h.asm"
         path.write_text("\n".join(out) + "\n", encoding="utf-8", newline="\n")
         print("wrote %s (%d SWIs)" % (path, len(swis)))
         return 0
