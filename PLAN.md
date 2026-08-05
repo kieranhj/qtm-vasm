@@ -503,8 +503,11 @@ crc    built 9AA00EE5, expected 9AA00EE5  OK
 IDENTICAL -- acceptance test passed.
 ```
 
-The §5 acceptance criteria 1–4 are met. Criterion 5 (loads and plays under emulation) is
-untested and is the remaining work, along with Phase 6.
+**All five §5 acceptance criteria are met.** The build is byte-identical, and the module
+loads and plays under Arculator. (Which config, and RPCEmu, were not separately recorded —
+byte-identity makes wider testing a formality rather than a risk, but it has not been done.)
+
+Phase 6 is the remaining work.
 
 **`src/qtm.asm` is generated, not written.** `PROCassm`'s body *is* the module's table of
 contents — its `FNassm_*` calls are what fix the layout order — so the top level is a

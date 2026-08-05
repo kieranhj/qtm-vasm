@@ -15,9 +15,11 @@ crc    built 9AA00EE5, expected 9AA00EE5  OK
 IDENTICAL -- acceptance test passed.
 ```
 
-Still outstanding: running the built module under emulation (PLAN.md §5 criterion 5), and
-the Phase 6 build variants — three `FNlong_adr` sites inside `qtmrast` blocks are deferred,
-since this build excludes them.
+The built module loads and plays under Arculator, so all five acceptance criteria in
+PLAN.md §5 are met.
+
+Still outstanding: the Phase 6 build variants — three `FNlong_adr` sites inside `qtmrast`
+blocks are deferred, since this build excludes them.
 
 See [`PLAN.md`](PLAN.md) for the plan and findings; §5a–§5e record what each phase actually
 turned up, including the four BBC BASIC assembler behaviours that the original rule table
