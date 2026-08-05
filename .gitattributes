@@ -5,6 +5,10 @@ ref/QTMModule              binary
 ref/source-tokenised/**    binary
 tools/*.exe                binary
 
+# The log->linear table is a 256-byte blob with no extension, and it contains
+# CR and LF bytes; with core.autocrlf=true git would corrupt it as text.
+src/LOGdata                binary
+
 # Ordinary text
 *.md                       text eol=lf
 *.py                       text eol=lf

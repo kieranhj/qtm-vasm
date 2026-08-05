@@ -325,6 +325,215 @@ qtm-vasm/
 
 ---
 
+## 5a. Phase 0 outcome — corrections to the above
+
+Phase 0 is complete except for the golden listing. Four claims in this plan turned
+out to be wrong, and two of them shrink Phase 2 substantially.
+
+**Phases 0(b) and 0(c) did not need the emulator.** Both were expected to require a
+`PROCdumpsyms` run under Arculator. In fact every offset constant is a literal or a
+constant expression, and `FNcompress` is a pure function of inputs already in the
+tree — so both are derived on the host by `tools/dumpsyms.py` and
+`tools/textcomprs.py`. More importantly both *self-check* against ground truth:
+
+- all 26 compressed strings were located in `ref/QTMModule`, tiling contiguously
+  with single zero terminators from `0x305D` to `0x3671`;
+- the offsets satisfy the original build's own assertion
+  (`generalusebuffer = generaluse_addr - song_data`, both 1032) and a second one
+  implied by the source (`dma_clc = unused_e`, both 2812) that reaches the part of
+  the layout the first does not.
+
+Only the golden listing (0a) still needs RISC OS — see `tools/emulator/README.md`.
+
+**§3.4 says 28 `FNcompress` sites; there are 26.**
+
+**§2 Phase 2's call-site table is wrong, and four of the nine `FN`s are dead.**
+Counting non-comment call sites only:
+
+| Function | plan said | actual | note |
+|---|---|---|---|
+| `FNlong_adr` | 51 | 22 | |
+| `FNmrs` / `FNmsr` / `FNmrc` | 11 / 12 / 4 | 10 / 11 / 3 | |
+| `FNmega_adr` | 6 | **0** | defined, only ever named in REMs |
+| `FNdiv` | 34 | **0** | all 32 calls are inside `FNAUdiv` |
+| `FNAUdiv` | 2 | **0** | its one mention is commented out (`;FNAUdiv`) |
+| `FNmcr` | 1 | **0** | defined, never called |
+
+So Phase 2 is one vasm macro (`FNlong_adr`, 22 sites) plus 24 hand-encoded words
+(`FNmrs`/`FNmsr`/`FNmrc`) emitted as `.long`, not nine constructs across 119 sites.
+
+**`PROCmodvars` is empty** (`DEF PROCmodvars` / `ENDPROC`), so §3.2 has nothing to
+do. Likewise `amigaperiodz`, `loglintab`, `helpdate`, `helpchar` and
+`helptextversion` are ordinary assembly labels, not BASIC-computed constants.
+
+Two smaller notes for later phases:
+
+- vasm's std syntax rejects `name = value` and `name .equ value` in column 0 —
+  only `.equ name,value` parses. `.if` / `.fail` work as expected.
+- `FNmrs`/`FNmsr`/`FNmrc` poke their words straight into memory rather than going
+  through `[OPT`, so their 24 words will be missing from the golden listing.
+
+## 5b. Phase 1 outcome — translation rules the §1 table was missing
+
+All seven files convert and assemble. `QTM_Timer` and `QTM_Data` are **byte-identical**
+to their slices of the shipped module (`0x2298..0x25F0` and `0x6728..0x6800`); the other
+five are correct up to their first unexpanded macro, which is all that can be asked of
+Phase 1. What remains is 45 Phase-2 macro sites and the 26 Phase-3 frozen strings.
+
+Four behaviours of the BBC BASIC assembler were not in §1 and each one silently corrupts
+the output if missed. All were found by `tools/checkfile.py`, which places a single
+converted file at its real address using the listing's label addresses and diffs it
+against the module.
+
+1. **A `;` comment ends at the next `:`, not at end of line.** The assembler consumes one
+   statement at a time and `:` terminates the statement, comment included. `QTM_Play`
+   line 1230 is `;EQUD 0;EQUD 0:EQUD 0` and the listing shows the comment printed as
+   `;EQUD 0;EQUD 0` with a real `EQUD 0` assembled at `0x4310`. Treating `;` as
+   end-of-line loses that word and shifts everything after it.
+
+2. **The assembler word-aligns before an instruction, but not before data.** `QTM_Mod`
+   line 599 emits a 17-byte `EQUS` at `0x6C4`, and the next `SWI` is at `0x6D8` with no
+   `ALIGN` in the source. vasm does not do this, so a `.p2align 2` has to be inserted.
+
+3. **Labels are not aligned, and branch destinations round up.** 42 labels in the module
+   sit at unaligned addresses inside string tables. `err_cmddisable` is at `0x0A02` while
+   its first instruction is at `0x0A04`, and `BVS err_cmddisable` at `0x09D8` encodes
+   offset 9, i.e. it targets `0x0A04`. So alignment padding goes *before* a label that
+   precedes code, and data labels are left where they are.
+
+4. **A stray `ENDIF` is a no-op.** `QTM_Song` line 847 has an `ENDIF` with no matching
+   `IF`; BASIC ignores it. Emitting `.endif` for it unbalances the output.
+
+Three vasm quirks, all confirmed by probe:
+
+- Only `.equ name,value` parses; `name = value` and `name .equ value` in column 0 are read
+  as mnemonics.
+- An immediate may not begin with `(`, even when the parens do not wrap the whole
+  expression. `#(a-b)` fails; `#a-b` and `#0+(a-b)/4` work.
+- `.if` wants bitwise `|`/`&`, not `||`/`&&`. BASIC's `TRUE` is `-1`, so the flags carry
+  over unchanged.
+
+Constant expressions are folded in the converter only where BASIC's semantics differ from
+vasm's — its bitwise operators truncate float operands (`((1<<12)*0.01) AND &FF00` is 0,
+confirmed by the listing's `13A05000`), and its shifts bind looser than `+`/`-`. Everything
+else stays symbolic so the source still reads as offsets.
+
+## 5c. Phase 2 outcome — macros expanded
+
+All 45 macro sites are expanded. **Four of the seven files are now byte-identical** to
+their slices of the shipped module:
+
+| File | Extent | Status |
+|---|---|---|
+| `qtm_timer` | `0x2298..0x25F0` | identical |
+| `qtm_vucode` | `0x25F0..0x2AC0` | identical |
+| `qtm_dma` | `0x5624..0x6658` | identical |
+| `qtm_data` | `0x6728..0x6800` | identical |
+| `qtm_song` | `0x4C18..0x5624` | identical except `loglintab` (Phase 3 `.incbin`) |
+| `qtm_play` | `0x3674..0x4C18` | identical except `amigaperiodz` (Phase 3 tables) |
+| `qtm_mod` | `0x0000..0x3074` | identical except `0x2ADB..0x3073` (Phase 3 help text) |
+
+Every remaining byte is Phase 3 data. All code matches.
+
+**`FNlong_adr` must be emitted as `.long`, not as ADD/SUB mnemonics.** This is the
+immediate-encoding risk in §4 landing exactly where predicted. The second word of the pair
+always uses rotate 12 with the gap's high byte; when that byte is a multiple of 4 the same
+value has a second valid encoding, and vasm prefers it. For gap `0x5C3C` vasm emitted
+rotate 11 / imm `0x17` against the original's rotate 12 / imm `0x5C` — both mean `0x5C00`,
+only one is byte-identical. Composing the word from the label arithmetic removes the
+choice, and matches what `FNlong_adr` actually does (`EQUD optcode1%`).
+
+**The ADD/SUB direction cannot be decided by conditional assembly.** vasm's `.if` resolves
+a not-yet-seen label to 0, so `.if (target-here-8) < 0` takes the wrong branch on any
+forward reference. The direction is instead taken from the golden listing, where
+`FNlong_adr`'s two `EQUD`s appear with their real addresses — 19 sites, the other 3 of the
+22 being inside `qtmrast` blocks this build excludes. Each site's encoded gap is checked
+against its target label's address, so a mis-pairing is caught rather than emitted.
+
+`FNmrs` / `FNmsr` / `FNmrc` are emitted as `.long` from a transcription of the FNs' bit
+layouts. Unlike `FNlong_adr` these never appear in the listing at all — they poke memory
+directly, bypassing `[OPT` — so `tools/checkfile.py` against the module is the only
+check on them, and it passes for all 24.
+
+## 5d. Phase 3 outcome — all seven files byte-identical
+
+Every converted file now matches its slice of the shipped module exactly:
+
+| Extent | File | Bytes |
+|---|---|---|
+| `0x0000..0x3674` | `qtm_mod` (includes `qtm_timer`, `qtm_vucode`) | 14 068 |
+| `0x3674..0x4C18` | `qtm_play` | 5 540 |
+| `0x4C18..0x5624` | `qtm_song` | 2 572 |
+| `0x5624..0x6658` | `qtm_dma` | 4 148 |
+| `0x6728..0x6800` | `qtm_data` | 216 |
+
+The one region not yet covered is `0x6658..0x6728` (208 bytes: `r0_div_r1`, `divloo`,
+`armcheck`, `addpclr4`), which is assembled inline by the driver's `PROCassm` between
+`FNassm_dma` and `FNassm_tables`. That belongs to Phase 4's top-level file.
+
+The five generators were handled as §3 intended — frozen, not re-implemented:
+
+1. **`FNcompress`** — the 26 outputs come from `ref/helptext.txt`, keyed by source line.
+   Each was located in `ref/QTMModule` before being frozen, which is what makes this safe.
+2. **`LOGdata`** — `.incbin` of the original 256-byte file, staged to `src/LOGdata`.
+3. **`PROCinit_amiperiods`** — the 16 × 72 × 2 = 2304-byte period tables, transcribed from
+   the driver's `DCW` block to `src/qtm_amiperiods.asm`.
+4. **`PROCinit_offsets` / `FNtableoffsets`** — already frozen in Phase 0(b).
+5. **Post-assembly patches** — `helpdate` and `helptextversion` are emitted as the bytes
+   observed in the shipped module, since `PROCvalidatecrc` stamps `MID$(TIME$,5,11)` and a
+   build today would differ. The net effect of the beta patches is small and worth
+   recording: `helpdate`'s leading `" ("` becomes `"b ("`, and `"v"+ver$` written at
+   `helptextversion+8` consumes one of the six `CHR$31` padding bytes.
+
+Two reservations in the source (`P%+=n`) are filled in after assembly rather than left as
+zeros, so they are substituted rather than skipped: `loglintab` (256) and `amigaperiodz`
+(2304). Any future `P%+=` site should be checked against the module before assuming it is
+a genuine gap.
+
+One converter bug worth noting, because it was silent: the data directives can run
+straight into their operand with no separator — the period tables are written
+`DCW1712:DCW1616:...` — and the general mnemonic rule read `DCW1712` as a single
+identifier, dropping 158 of the 1152 values. Only the size check (2304 bytes) caught it.
+
+## 5e. Phases 4 and 5 outcome — byte-identical
+
+```
+size   built 26624, reference 26624  OK
+crc    built 9AA00EE5, expected 9AA00EE5  OK
+IDENTICAL -- acceptance test passed.
+```
+
+The §5 acceptance criteria 1–4 are met. Criterion 5 (loads and plays under emulation) is
+untested and is the remaining work, along with Phase 6.
+
+**`src/qtm.asm` is generated, not written.** `PROCassm`'s body *is* the module's table of
+contents — its `FNassm_*` calls are what fix the layout order — so the top level is a
+translation of it (`tools/mktoplevel.py`), with those calls mapped onto `.include`. Nothing
+about the order is asserted by hand.
+
+`.org 0` with `-Fbin` reproduces both halves of the original's arrangement: `P%=0` makes
+addresses module-relative, and the pre-zeroed 63K buffer makes every reserved region zero.
+No explicit `.skip` padding was needed, and vasm's fill byte never came into it — the only
+gaps are the ones the source reserves.
+
+Everything under `src/` is generated from `ref/`. `python build.py` recreates it all and
+verifies; `python build.py --check` verifies without regenerating. A from-scratch rebuild
+after deleting `src/` reproduces the module exactly, so the pipeline — not just the current
+output — is what has been checked.
+
+Two things this phase turned up:
+
+- **A folded constant exceeded 32 bits.** `QTM_Mod` has `TST R0,#%1110<<29`, i.e.
+  `0x1C0000000`. BASIC wraps to 32 bits and so does vasm, which is why the output was
+  already correct, but vasm warned. Folded values are now wrapped explicitly.
+- **`P%+=n` is not always a gap.** An over-broad rule that treated all `P%`/`O%`/`L%`
+  assignments as bookkeeping swallowed the two data fills, and the build came out 2560
+  bytes short — exactly `amigaperiodz` (2304) plus `loglintab` (256). The size check caught
+  it immediately; a byte diff alone would have been far less obvious.
+
+Three `FNlong_adr` sites remain deferred, all inside `qtmrast` blocks this variant
+excludes. They are Phase 6 work, not gaps in this build.
+
 ## 6. Effort and sequencing note
 
 The v1.49b choice matters enormously. Porting **v1.45** would have meant reproducing
