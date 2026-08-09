@@ -5,6 +5,10 @@ This carries forward the analysis in
 ARM250, and restates it against the code that now exists here. Everything below is
 *derived from instruction counts and PRM timings, not measured* — see §5.
 
+§3.2 additionally incorporates Steve Harrison's own "QTM Turbo" idea, sent in response to
+this repository; it turns out to be the same idea as the lane-packing entry already here,
+and his framing of it is the better one.
+
 The byte-identical port is what makes any of it actionable: the mixer is now editable in
 the same toolchain as `LSP_ARM250` and `rasterman-vasm`, and there are four verified
 baselines to regress against.
@@ -89,18 +93,154 @@ end-of-sample test into the load:
 So the flag budget in the ending path is already spoken for. A DDA restructure likely has
 to come *after* §4 removes the need for that test.
 
-### 3.2 Lane-packed output with persistent pre-shifted lanes
+The DDA also forces the sample pointer and the fraction into *separate* registers, since
+the carry has to mean "the index advanced" — which is what makes it so expensive in the
+register budget of §3.2.1, and why it lands last in §6 rather than first.
 
-Hold each channel's scaled byte *already shifted into its output lane*, `ORR` four
-together, one `STR` per frame: 4 clocks for 4 bytes versus 8 for four `STRB`s. Combined
-with §3.1, a lane is only recomputed when that channel's index advances.
+### 3.2 Lane-packed output — Steve Harrison's "QTM Turbo"
 
-This is **not** what `LSP_ARM250` does — it recomputes every lane every frame and therefore
-breaks even. The saving only materialises if lane values persist across frames.
+This was §3.2 here ("lane-packed output with persistent pre-shifted lanes") arrived at from
+the LSP side. It is the same idea Steve has had since 1993, and his framing is the clearer
+one, so it is quoted and worked through properly below.
 
-Register pressure is the blocker: 4 lanes + 4 accumulators + 4 increments + 4 base
-pointers + volumes + destination exceeds the register file. Needs volume packing (as LSP
-does) and probably FIQ-mode banked registers.
+> Instead of filling each sample into the DMA buffer with a loop LDRB..process..STRB for
+> 208 bytes, then repeating that for each of four channels (4 loops x 208 bytes); your loop
+> becomes LDRB each of four (or three) samples, process these bytes into a single word, then
+> STR the word to the DMA buffer and you repeat this loop once (1 loop x 208 words) […]
+> However to achieve the flexibility needed […] you'd need about 5 registers per active
+> channel, plus a couple of scratch registers… and the ARM only has R0-R14.
+> — Steve Harrison
+
+**The buffer format already permits this.** The stores are `STRB R6,[R12],R11` where R11 is
+the "DMA gap" — the interleave stride, equal to the active channel count. So channel *n*
+already owns bytes *n*, *n+stride*, *n+2·stride*… and a word of the buffer is already
+exactly one sample for each of four consecutive channels. Turbo is a *transpose of the fill
+order*, not a change to the hardware interface. Nothing downstream of the mixer has to move.
+
+#### 3.2.1 The register budget, worked out
+
+Steve's "about 5 per channel" is right, and the two escapes he names are exactly the two
+that the arithmetic picks out. Two addressing forms are possible, and they differ in both
+cost and register count.
+
+**Form A — bank + scaled index** (what QTM does today, minus the end test):
+
+```arm
+    LDRB   Rs,[Rbank,Racc,LSR #12]   ; 3
+    SUBS   Rs,Rs,Rvol                ; 1   log-domain volume subtract
+    ORRPL  Rout,Rout,Rs,LSL #n       ; 1   <- clamp folded into the pack, see below
+    ADD    Racc,Racc,Rinc            ; 1
+```
+
+**Form B — DDA with post-indexed conditional load** (§3.1's form, which needs the pointer
+and the fraction in separate registers so the carry means "index advanced"):
+
+```arm
+    ADDS   Rfrac,Rfrac,Rinc          ; 1
+    LDRCSB Rs,[Rptr],#1              ; 3 taken, 1 skipped — pointer bump is free
+    ORRPL  Rout,Rout,Rs,LSL #n       ; 1   Rs must persist per channel when skipped
+```
+
+| | per channel | shared | 4 chans | 3 chans |
+|---|---|---|---|---|
+| A, per-channel volume | acc, inc, vol | bank, dest, out, scratch | **16 ✗** | 13 ✓ |
+| A, volume out of registers | acc, inc | bank, dest, out, scratch | **12 ✓** | 10 ✓ |
+| B, volume out of registers | ptr, frac, inc, scratch | dest, out | **18 ✗** | 14 ✓ |
+| B, per-channel volume | + vol | dest, out | ✗ | **17 ✗** |
+
+Against R0–R14 = 15. This reproduces Steve's 1993 conclusion exactly, and sharpens it:
+**you can have four channels, or the load-skipping DDA, or per-channel volume registers —
+any two, never all three.** Note the loop must be fully unrolled: there is no register left
+for a counter (QTM already unrolls its mixers at runtime, so this costs nothing new).
+
+#### 3.2.2 Two things that make the budget less tight than it looks
+
+**The clamp is free once you pack.** Today the any-volume path spends `SUBS` + `MOVMI R6,#0`
+to clamp silence. When the destination is an `ORR` into an accumulator, "contribute nothing"
+*is* zero — so `ORRPL` does the clamp and the pack in one instruction. One clock per byte
+recovered, and it only exists in the packed form.
+
+**Volume need not occupy a register at all.** Volume is constant across a fill; it changes
+only at tick boundaries. QTM log volume is 0–255, which is exactly an ARM 8-bit immediate
+with no rotation — so `SUBS Rs,Rs,#vol` works, and the immediate can be *patched* at tick
+rate. QTM already builds its mixers by runtime code generation (`unroll_code`); this is the
+same technique applied 50 times a second instead of once. That removes all four volume
+registers at zero per-byte cost and zero memory cost — and it is a strictly better answer
+than Steve's fallback of pre-built copies of each sample at different volumes, which costs
+*N* × sample memory and quantises every volume slide and tremolo.
+
+Per-tick codegen also dissolves the other combinatorial problem: with all channels in one
+loop there are 2⁴ combinations of full-volume/any-volume/ending/silent, which is far too
+many to hold as prebuilt templates. Generating the ~100 instructions of a short unrolled
+body per tick costs on the order of 0.3 % of the CPU. (On ARM3 this needs a cache flush per
+tick; Turbo is an ARM2 proposition anyway.)
+
+That gets 4 channels, full volume control, and packing into **12 registers with three
+spare** — better than Steve expected. What it still cannot reach is Form B's skipped load.
+
+#### 3.2.3 What it actually saves — and where the honest uncertainty is
+
+Per 4-byte word, including `MOV Rout,#0` and the `STR`:
+
+| | clocks/byte | vs today |
+|---|---|---|
+| today, any-volume | 8 | — |
+| today, full-volume | 6 | — |
+| Turbo Form A, volume | 6.75 | −16 % vs any-vol, **worse than full-vol** |
+| Turbo Form A, prescaled | 5.75 | −28 % / −4 % |
+| Turbo Form B, prescaled (inc ≈ 0.5) | 4.75 | **−41 %** |
+
+Two things fall out of this that are worth being blunt about:
+
+1. **On instruction count alone, packing is nearly worthless.** It trades a 2-clock `STRB`
+   for a 1-clock `ORR` plus an amortised 0.75, saving 0.25 clocks/byte. Almost all of the
+   −41 % in the last row comes from §3.1's *skipped load*, not from the packing. Turbo and
+   §3.1 are not independent wins to be added up — §3.1 is the win, and packing is mostly a
+   way of paying for it.
+
+2. **But instruction count is probably the wrong metric here.** Four `STRB`s put four write
+   cycles on the bus; one `STR` puts one. That is a **4× reduction in write traffic to the
+   DMA buffer**, plus one sequential pass over it instead of four strided passes that defeat
+   MEMC page mode. On a machine where video DMA has priority over the CPU, bus traffic can
+   cost far more than the CPU clock count implies — and this is very likely where Steve's
+   "somewhere around 1/2" comes from, since it is exactly what a clock-count analysis fails
+   to see.
+
+   This also merges Turbo with §3.4: in a high-bandwidth screen mode they are the same
+   argument. It is the single strongest reason to measure rather than model.
+
+#### 3.2.4 The guard gap stops being optional
+
+§4 is listed below as an *enabler*. For Turbo it is a hard **prerequisite**, for a
+structural reason: today each channel is filled in its own pass, so `a2_chanctrl` can split
+that pass at that channel's sample end and dispatch to `a2_endanyvol` / `a2_repanyvol` /
+`a2_clearing`. One interleaved loop has four independent sample boundaries in it and cannot
+be split four ways. Either every channel is guaranteed not to end mid-fill, or Turbo does
+not work at all.
+
+The guard must cover one fill at the maximum increment — 208 × ~4.0 ≈ 832 bytes per sample,
+under 26 KB for a full 31-sample MOD. Looping samples get their loop data pre-copied into
+the guard; one-shot samples get silence.
+
+This also frees the addressing. QTM indexes `[R0,R1,ASR #12]` with R0 = sample *end* and R1
+a negative offset precisely so the sign bit is the end test. With no end test, `LSR` becomes
+usable and offsets can be positive from a shared bank base — which is what makes Form A's
+single shared `Rbank` register legal in the table above.
+
+#### 3.2.5 The framing that makes it worth doing
+
+At 4-channel Form A prescaled, the mixer costs ~479 k clocks/sec against ~667 k today. That
+is *less than three channels cost today* (~500 k). So the pitch is not "the mixer gets 28 %
+cheaper" — it is:
+
+> **QTM Turbo buys you the fourth channel for free.**
+
+And if the bandwidth argument in §3.2.3 holds up, it buys more than that.
+
+One correction to what this section said before: it claimed FIQ banked registers could
+relieve the pressure. They cannot. FIQ banks R8–R14, it does not add to the fifteen visible
+at once. Its only benefit here is letting per-channel state persist between fills without
+save/restore, which is a per-fill saving, not a per-byte one.
 
 ### 3.3 Word fetch with shift extraction
 
@@ -117,7 +257,7 @@ inner loop.
 ## 4. The enabler: LSP's `ecart` guard gap
 
 The one LSP idea that *does* transfer, and it is a precondition rather than a win in
-itself.
+itself. §3.2.4 upgrades it from "enabler" to hard prerequisite for Turbo.
 
 Pre-pad every sample offline with a gap pre-filled with its own loop data. The mixer can
 then overrun the nominal sample end freely, which means:
@@ -166,11 +306,31 @@ equivalent markers already exist in `LSP_ARM250` around `LSP_Player_standard` an
 
 ## 6. Order of work
 
-1. Measure with the `alpha` build: which mixer paths dominate, and the real mixer /
-   interpreter split.
-2. Prototype the offline sample-prep pass (§4) — guard gap, log conversion, loop pre-copy.
-   Verify the unmodified module still builds byte-identical, so the change is isolated to
-   the data.
-3. With the end-of-sample test gone, attempt §3.1.
-4. Only then consider §3.2, which needs FIQ banked registers and is the most invasive.
-5. Keep §3.4 in view throughout: it may be larger than 1–3 combined, and costs no code.
+Turbo (§3.2) is the target. The order below is forced by §3.2.4 — the guard gap has to
+exist before a packed loop can be written at all — and by §3.2.3, which says the decisive
+question is a bandwidth question that only measurement can answer.
+
+1. **Measure the baseline.** `python build.py alpha` gives the distribution across mixer
+   paths; border-colour markers around `a2_DMAsound` give wall-clock. Do this in both a
+   2 bpp and a 256-colour mode — the delta between them is the bandwidth sensitivity that
+   decides how much §3.2.3 is worth.
+2. **Settle the bandwidth question cheaply, before building anything.** A throwaway loop
+   that writes 208 bytes as strided `STRB`s versus 208/4 words as sequential `STR`s,
+   timed in both screen modes, costs an afternoon and either justifies Turbo or kills it.
+   It does not need the guard gap, the codegen, or any change to QTM.
+3. **Offline sample-prep pass** (§4): guard gap sized for one fill at maximum increment,
+   loop data pre-copied, silence for one-shots. Purely a data change — the unmodified
+   module must still build byte-identical, which `build.py` verifies.
+4. **Remove the end-of-sample split** using the guard gap: `a2_chanctrl` collapses, the
+   per-fill split disappears, addressing moves to bank + positive `LSR` offset. Still
+   4 separate strided passes. Measurable on its own, and a prerequisite for everything after.
+5. **Turbo Form A** (§3.2.1): one interleaved pass, `ORRPL` clamp fold, volume as a
+   tick-patched immediate. This is the milestone — 4 channels, full volume, 12 registers.
+6. **Per-tick codegen** of the specialised loop body, if step 5 shows the template
+   combinations are a problem in practice rather than in theory.
+7. **Turbo Form B** (§3.1 + §3.2): the skipped load. Needs 3 channels, or a cleverer answer
+   to the persistent-scratch problem. Most of the theoretical win lives here.
+8. Keep §3.4 in view throughout: it may be larger than everything above, and costs no code.
+
+Steps 1–2 are the whole decision. Steps 3–4 are worth doing regardless of what 1–2 say,
+because they simplify the mixer and are independently measurable.
