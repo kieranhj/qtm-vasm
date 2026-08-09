@@ -3,6 +3,9 @@
 Porting **QTM (QTheMusic) v1.49b** by Steve Harrison from tokenised BBC BASIC V assembler
 source to plain [vasm](http://sun.hasenbraten.de/vasm/) ARM assembler.
 
+QTM's home is **<http://www.pi-star.co.uk/qtm>** — the original releases, documentation and
+tools are there, and that is the place to go for QTM itself rather than this repository.
+
 **Success criterion: the vasm build must be byte-identical to the released `QTMModule`**
 (26 624 bytes, dated 19 Mar 2023), which is checked in at `ref/QTMModule` as the acceptance
 target.
@@ -95,7 +98,8 @@ source in the public domain under the conditions in [`ref/docs/Licence`](ref/doc
 Those conditions are short and worth reading; the two that bind this repository are:
 
 - the original author must be credited, along with the QTM web address
-  (`www.pi-star.co.uk/qtm`);
+  (<http://www.pi-star.co.uk/qtm>, also carried in the module's own help string alongside
+  the mirror at <http://www.phlamethrower.co.uk/riscos/qtm.php>);
 - **modified versions of the source must be clearly identified as such**, and the author
   asked to be notified.
 
