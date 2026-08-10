@@ -263,6 +263,46 @@ a negative offset precisely so the sign bit is the end test. With no end test, `
 usable and offsets can be positive from a shared bank base — which is what makes Form A's
 single shared `Rbank` register legal in the table above.
 
+#### 3.2.4a Implementation spec
+
+Settled while starting the integration; recorded so the remaining work is a job rather
+than an open question. Measured basis: [`MEASUREMENTS.md`](MEASUREMENTS.md) step 5.
+
+**The loop is static, not generated.** `FILL` is 208 and the unroll factor is 26, both
+fixed, so the ×26 packed body can simply be assembled into the module — about 480
+instructions, ~1.9 KB. QTM's `unroll_code` machinery is not involved at all. This removes
+the per-tick code generation that §3.2.2 assumed was necessary; the only runtime patching
+is 104 volume immediates, and only when a channel's volume actually changes.
+
+**The dispatch disappears via a silence word.** `tools/prep` reserves bank offset 0 as
+four zero bytes. A dead or silenced channel is pointed there with an increment of 0: the
+pointer never moves, every read returns 0x00, and `SUBS 0,#0` / `ORRPL` contributes
+nothing to its lane. No clearing path, no branch — which is what makes one interleaved
+loop possible at all, given a quarter of channel-fills are dead channels. Being a fixed
+point it needs no guard.
+
+**`a2_chanctrl` already computes everything Turbo needs** — `R0` base, `R1` offset,
+`R2` arc increment, `R3` log volume. The eight `LDR{cond} PC,jmp_a2_*` dispatch sites
+(qtm_dma.asm 674, 680, 696, 703, 709, 720, 734, 740) become returns; the two silent ones
+additionally set `R2` to 0. **Increment 0 is a safe "silent" signal** because `a2_chanctrl`
+already rejects a zero pitch for a live channel (`CMPNE R2,#0 / BLE a2_chanend`).
+
+**Bank-relative offsets cost two instructions per channel per fill**, not a rewrite of
+note-on as §3.2.1 feared:
+
+    SUB  Rt,R0,Rbank            ; sample end, relative to the bank
+    ADD  Racc,R1,Rt,LSL #12     ; ...plus QTM's negative offset = absolute 20.12
+
+and the inverse on writeback. The bank must be ≤ 1 MB for `LSR #12` to address it, which
+every prepared bank is by a wide margin.
+
+**The bank base lives in `rm_use_word`** (workspace 0x420), which no non-RasterMan build
+references.
+
+Remaining: the writeback path (offset back to QTM's representation, with the guard-gap
+wrap fixup from step 4), and getting the bank base set at load time. Everything else above
+is specified.
+
 #### 3.2.5 The framing that makes it worth doing
 
 At 4-channel Form A prescaled, the mixer costs ~479 k clocks/sec against ~667 k today. That

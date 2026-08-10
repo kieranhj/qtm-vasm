@@ -245,7 +245,15 @@ def build_guard(s, body):
 
 def prepare(mod, lut, us, fill, floor_period):
     analyse(mod, us, fill, floor_period)
-    bank = bytearray()
+    # Bank offset 0 is a silence word, and it is what lets the packed mixer
+    # drop its dispatch entirely.  A dead or silenced channel is pointed here
+    # with an increment of 0: the pointer never moves, every read returns
+    # 0x00, and `SUBS 0,0 / ORRPL` contributes nothing to its lane.  So there
+    # is no separate clearing path and no per-channel state to branch on --
+    # which matters because a quarter of channel-fills are dead channels
+    # (MEASUREMENTS.md Result 3) and one interleaved loop cannot branch four
+    # ways.  Being a fixed point, it needs no guard.
+    bank = bytearray(b"\0" * 4)
     for s in mod.samples:
         s.off = len(bank)
         body = bytes(lut[b] for b in s.data[:s.play_len])
