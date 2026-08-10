@@ -244,9 +244,32 @@ every sample differ while the signal is the same. That is why the comparison is 
 quantities insensitive to sub-sample phase. Sample-wise comparison of the captures is
 meaningless here and was discarded as such, not massaged.
 
-What this does *not* yet do is compare the mixer's own output byte-for-byte. The DMA buffer
-is the exact artefact — `QTM_DMABuffer` returns its address — and comparing it at a
-breakpoint-synchronised fill would close the loop. That is the one verification still owed.
+### The negative control
+
+Correlation with the stock build shows the two are the same music, but not that the guard
+gap is doing anything — a patch that quietly failed to apply would score just as well. So
+the same `gg` build was run again against **unprepared** samples, with the bank repoint
+removed and nothing else changed:
+
+| | spectral correlation vs stock |
+|---|---:|
+| `gg` + prepared samples | **0.999010** |
+| `gg` + unprepared samples | **0.789279** |
+
+Without a guard the mixer reads past the loop end into whatever follows, and it is plainly
+audible. That establishes both halves of the claim: the patch is live and load-bearing, and
+the prepared data is what makes it correct.
+
+### What is still owed
+
+A byte-for-byte comparison of the DMA buffer — the mixer's exact output, before any
+resampling. The mechanics work: break on `a2_DMAsound`, and at each break the buffer filled
+by the *previous* call can be read whole (832 bytes, alternating `&01F07000`/`&01F06000`,
+de-interleaving cleanly into 4 × 208). What is missing is a way to guarantee both builds
+are at the same song position, since each `RMKill`/`RMLoad` re-lays the RMA and playback
+starts a few fills apart. The fix is to match captures on QTM's own position fields in the
+workspace rather than assuming two runs align — worth doing before trusting a *small*
+difference, though the negative control already covers the large ones.
 
 ## Caveats
 

@@ -48,3 +48,25 @@ how one measurement got pointed at the wrong address.
 blocks, and after a few reloads they end up scattered *below* the module rather than above
 it. Never reuse an address between runs: read the jump table via `swi_qtmdebug` each time
 and derive the profile range from it.
+
+## Comparing audio between two builds
+
+Captures are 48 kHz, resampled from QTM's 83,333 Hz, and two runs start a few milliseconds
+apart. A fractional-sample offset therefore makes nearly every sample differ while the
+signal is identical — a sample-wise diff will report ~98% "different" and mean nothing.
+
+Use measures insensitive to sub-sample phase:
+
+- **magnitude spectrum correlation** — also insensitive to time shift, so no alignment step
+  is needed. This is the one to quote.
+- **short-window RMS envelope** — only valid *after* aligning by cross-correlation.
+
+And always run a **negative control**. Correlation against a reference shows two builds are
+playing the same music; it does not show that the change under test did anything. Re-run
+the modified build with the change's precondition removed (here: unprepared samples) and
+confirm the number collapses — 0.999 vs 0.789 is what tells you the patch is live.
+
+For an exact comparison, use the DMA buffer rather than audio: break on `a2_DMAsound`, and
+at each break the buffer filled by the previous call is complete (832 bytes for 4 channels,
+alternating between two addresses, de-interleaving as `buf[ch::4]`). Match captures on
+QTM's position fields — do not assume two module loads start at the same point.
