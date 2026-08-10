@@ -7,9 +7,10 @@ Results and method: [`../../MEASUREMENTS.md`](../../MEASUREMENTS.md).
 |---|---|
 | `setup.bas` | load a song, start it, print the module base / workspace / jump table |
 | `paths.bas` | play N tunes for 5 s each, write the `dma_*` path counters to `res` |
+| `turbo.bas` | load the `turbo` build with a prepared sample bank, poke `turbo_bank`, start |
 | `step1-paths.csv` | raw output of `paths.bas`, step 1 |
 
-Both are plain text with CR line endings, to be `*Exec`'d into BASIC — copy into the
+All are plain text with CR line endings, to be `*Exec`'d into BASIC — copy into the
 machine's HostFS sandbox with a `,fff` (Text) suffix, then `*Exec HostFS::HostFS.$.<name>`
 followed by `RUN`.
 
@@ -70,3 +71,30 @@ For an exact comparison, use the DMA buffer rather than audio: break on `a2_DMAs
 at each break the buffer filled by the previous call is complete (832 bytes for 4 channels,
 alternating between two addresses, de-interleaving as `buf[ch::4]`). Match captures on
 QTM's position fields — do not assume two module loads start at the same point.
+
+## More gotchas found in step 6
+
+**Do not compare two builds' DMA buffers against each other if you can avoid it.** The
+tick (`CIAhandler`) and the DMA fill run off *independent* timers, so a tick boundary can
+fall anywhere within a fill and two correct runs need not agree on where. Compare each
+build's buffer against a model driven by that build's *own* parameters instead: break at
+the end of the fill, read the mixer's inputs and its output together, and reproduce the 832
+bytes in Python. No alignment problem, and a stronger result.
+
+**Read the buffer address from a register, never guess which of the two it is.** The two
+buffers alternate; picking the wrong one produces a diff that looks exactly like a real bug
+(and did, for one confusing minute). At the end of `turbo_fill` the output pointer is in R9,
+so the buffer is `R9 - 832`; in stock builds the word at `song_data + &BC` holds the buffer
+being filled.
+
+**Derive addresses from the jump table, not from listing offsets.** `turbo` appends three
+words to `a2_jumptable` giving `turbo_bank`, `turbo_loop` and `turbo_end` as offsets
+*relative to the jump table itself*, so `J% + !(J%+36)` is the bank pointer with no
+constants involved. The alpha/gg harnesses still need `J% - &64D8` and `J% - &64F4`
+respectively — those differ per build and are exactly the kind of constant that sent a
+step-1 measurement 2 KB wide.
+
+**Profile the whole path, not the mixer.** Step 4's "mixer" figure turns out to have covered
+`a2_DMAsound` and `a2_chanctrl` as well; step 6's separate module and RMA ranges reproduce it
+to within 1 % only when summed. Fix the range definition before comparing across sessions,
+and prefer the whole-path number anyway — it is the one that caught Turbo's regression.

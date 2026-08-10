@@ -263,7 +263,15 @@ a negative offset precisely so the sign bit is the end test. With no end test, `
 usable and offsets can be positive from a shared bank base — which is what makes Form A's
 single shared `Rbank` register legal in the table above.
 
-#### 3.2.4a Implementation spec
+#### 3.2.4a Implementation spec — built, and it loses
+
+> **Built and measured.** `python build.py turbo` produces exactly what this section
+> specifies. It is byte-exact against QTM's mixer and **+49 % on `coolbeans`, +16 % on
+> `changing-waves`** — a substantial regression. See
+> [`MEASUREMENTS.md`](MEASUREMENTS.md) step 6. The section is kept as written because the
+> error is instructive and is *not* in the inner loop, which performs as step 5 promised:
+> its instructions measure 8–10 % cheaper each. The error is the silence word, in bold
+> below. §3.2.4b has what to do instead.
 
 Settled while starting the integration; recorded so the remaining work is a job rather
 than an open question. Measured basis: [`MEASUREMENTS.md`](MEASUREMENTS.md) step 5.
@@ -274,7 +282,7 @@ instructions, ~1.9 KB. QTM's `unroll_code` machinery is not involved at all. Thi
 the per-tick code generation that §3.2.2 assumed was necessary; the only runtime patching
 is 104 volume immediates, and only when a channel's volume actually changes.
 
-**The dispatch disappears via a silence word.** `tools/prep` reserves bank offset 0 as
+**The dispatch disappears via a silence word — this is the error.** `tools/prep` reserves bank offset 0 as
 four zero bytes. A dead or silenced channel is pointed there with an increment of 0: the
 pointer never moves, every read returns 0x00, and `SUBS 0,#0` / `ORRPL` contributes
 nothing to its lane. No clearing path, no branch — which is what makes one interleaved
@@ -302,6 +310,39 @@ references.
 Remaining: the writeback path (offset back to QTM's representation, with the guard-gap
 wrap fixup from step 4), and getting the bank base set at load time. Everything else above
 is specified.
+
+*(Both were done. The writeback turned out to need no new arithmetic at all: `a2_chanctrl`
+already computes the post-fill offset in R6, to decide whether the sample ends, and with the
+guard gap that value is correct as it stands. The bank base went in the module rather than
+the workspace, addressed PC-relatively, and is published to the loader through three words
+appended to `a2_jumptable`.)*
+
+#### 3.2.4b What to do instead
+
+The measurement says the packing is worth having and the silence word is not. Restated
+plainly: **the dispatch was never a cost, it was how QTM avoids work**, and the four paths
+it selects between differ by up to *everything* — a really-ended channel costs literally
+nothing, and that is 39 % of `coolbeans` channel-fills. Trading a 0.6 % dispatch saving for
+a 40 % work saving is a bad trade however elegantly it is done.
+
+So §3.2.2's per-tick code generation, which §3.2.4a dropped as unnecessary, is the answer
+after all. Generate the packed body from only the lanes that are live: a fill with two live
+channels emits `MOV` + 2 × 4 + `STR` = 10 instructions per word instead of 18, and still
+writes the buffer once per four bytes. The 2⁴ (or 3⁴ with volume classes) combinations that
+§3.2.4 called "far too many to hold as prebuilt templates" are no obstacle to *generating*
+one body per tick — which was the original argument.
+
+One caution before building it. On this session's numbers that comes out at roughly **−3 %
+against gg, not −25 %**: at 2.44 live lanes per fill, `coolbeans` needs about 2446
+instructions per fill against gg's 2311, and only wins because Turbo's instructions measure
+2.55 cycles against gg's 2.77. The packing's advantage is real but thin once QTM is allowed
+to skip again, and the estimate is an estimate. Benchmark it — a variant of
+`tools/bench/bench.asm` with 2 and 3 live lanes would settle it in an afternoon and before
+any codegen is written.
+
+The parts of Turbo that are keepers regardless: the guard gap (step 4), the offline sample
+prep, the tick-patched volume immediates, and `ORRPL` doing the clamp and the pack in one
+instruction.
 
 #### 3.2.5 The framing that makes it worth doing
 
@@ -396,21 +437,29 @@ question is a bandwidth question that only measurement can answer.
    `STRB`-vs-`STR` loop is unnecessary: the mode comparison already answers it on the real
    mixer, with byte-identical work in both modes, which is stronger evidence than a
    synthetic loop would have been.
-3. **Offline sample-prep pass** (§4) — now the largest known lever, not just an enabler:
-   guard gap sized for one fill at maximum increment,
-   loop data pre-copied, silence for one-shots. Purely a data change — the unmodified
-   module must still build byte-identical, which `build.py` verifies.
-4. **Remove the end-of-sample split** using the guard gap: `a2_chanctrl` collapses, the
-   per-fill split disappears, addressing moves to bank + positive `LSR` offset. Still
-   4 separate strided passes. Measurable on its own, and a prerequisite for everything after.
-5. **Turbo Form A** (§3.2.1): one interleaved pass, `ORRPL` clamp fold, volume as a
-   tick-patched immediate. This is the milestone — 4 channels, full volume, 12 registers.
-6. **Per-tick codegen** of the specialised loop body, if step 5 shows the template
-   combinations are a problem in practice rather than in theory.
+3. ~~**Offline sample-prep pass**~~ **Done** — `tools/prep`, log conversion byte-identical
+   to QTM's own, per-sample guard sizing from the pattern data, 17/17 songs verified.
+4. ~~**Remove the end-of-sample split** using the guard gap.~~ **Done** — `build.py gg`,
+   measured at −3.6 % (≈ −6 % corpus-typical). The "split" turned out not to exist; the
+   cost was one inline `SUBGE` per byte, and the model predicted the saving to 0.3 %.
+5. ~~**Turbo Form A**~~ **Done, and it loses** — `build.py turbo`. Byte-exact, and **+49 %
+   / +16 %** on two tunes. The inner loop performs as benchmarked; §3.2.4a's silence word
+   is what costs, by giving up QTM's ability to skip dead and silent channels. See
+   §3.2.4b and [`MEASUREMENTS.md`](MEASUREMENTS.md) step 6.
+6. **Per-tick codegen** of the specialised loop body. No longer conditional — it is the
+   only way to keep the packing *and* the skipping. **Benchmark it first**: the estimate in
+   §3.2.4b is about −3 %, not −25 %, and that is thin enough to be worth an hour of
+   `tools/bench` before an afternoon of code generation.
 7. **Turbo Form B** (§3.1 + §3.2): the skipped load. Needs 3 channels, or a cleverer answer
    to the persistent-scratch problem. Most of the theoretical win lives here.
 8. Keep §3.4 in view throughout: it may be larger than everything above, and costs no code.
 
-Steps 1–2 were the decision, and they came out in Turbo's favour. Steps 3–4 are worth
-doing regardless, because they simplify the mixer, are independently measurable, and — on
-the step 1 numbers — carry more of the win than the inner-loop work does.
+Steps 1–2 were the decision, and they came out in Turbo's favour. Steps 3–4 are the ones
+that survived: they simplify the mixer, are independently measurable, and — unlike step 5 —
+are wins in situ as well as in the benchmark.
+
+The through-line of steps 4–6 is one lesson learned three times: **on this machine, measure
+the whole path, not the loop.** Step 4's saving was smaller than the instruction count
+implied because the instruction removed was the cheapest one. Step 5's benchmark was right
+about the loop and silent about the fact that the loop would now run four times as often.
+Both errors are invisible from inside the inner loop and obvious from outside it.

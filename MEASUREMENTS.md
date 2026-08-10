@@ -341,6 +341,122 @@ with Result 2. All four tests share those conditions, so the ratio is sound.
 Every channel also uses the same increment (0.8125) and none of the loops handles a sample
 ending, so this measures steady-state throughput only.
 
+## Step 6 — Turbo in situ, and why it loses
+
+`python build.py turbo` builds the packed mixer described in OPTIMISATION.md §3.2.4a:
+the guard gap, plus one static ×26 loop that mixes all four channels into a register and
+writes the DMA buffer a word at a time. 468 instructions of loop, 104 volume immediates
+patched only when a channel's volume changes, and no dispatch at all — a dead channel is
+pointed at the bank's silence word with a zero increment.
+
+It works, it is exact, and **it is slower than what it replaces.**
+
+### It is exact
+
+Three checks, in increasing strength.
+
+`tools/turbo/verify.py` first settles the arithmetic offline: `SUBS`/`ORRPL` against QTM's
+`SUBS`/`MOVMI`/`STRB` over all 65,536 (byte, volume) pairs in all four lanes with no bleed
+between them, then whole 832-byte fills modelled from real prepared banks — 17/17 songs,
+live lanes and dead ones, looping and one-shot.
+
+Then in the emulator. Breaking on the final instruction of `turbo_fill`, the completed DMA
+buffer can be read whole along with the exact parameters that produced it (`turbo_acc`,
+`turbo_inc`, `turbo_vol`, and the bank base), so the guest's 832 bytes can be compared
+against QTM's byte-at-a-time mixer driven by the same inputs. **This is the byte-for-byte
+DMA-buffer comparison step 4 left owed**, and it needs no cross-run alignment at all — which
+is what made it awkward before, since the tick and DMA interrupts are independent timers and
+two runs need not agree on their phase.
+
+| fill | lanes | volumes | result |
+|---|---|---|---|
+| 2.5 s in | 2 live, 2 dead | 10, 10 | 832/832 bytes identical |
+| 11 s in | 3 live, 1 dead | 10, 10, 92 | 832/832 bytes identical |
+
+The final accumulators in R1–R4 also matched `acc + 208 × inc` exactly, confirming the
+20.12 bank-relative offsets survive the round trip through `a2_chanctrl`.
+
+Finally, the path counters over 5 s of `coolbeans` — 2008 calls, `an` 613, `rav` 487,
+`rfv` 121, `ce` 787 — match alpha's (612/489/122/785) and gg's (611/487/123/783) within
+±2. Same music, same dispatch decisions, so the cycle comparison below is like for like.
+Audio peak/RMS came out 5853/9976, 3279/3777 against gg's 5849/9973, 3278/3736.
+
+### It is slower
+
+Whole DMA path (`a2_DMAsound`, `a2_chanctrl`, and the mixer, wherever it lives), MODE 0,
+48 µs, 5 s from position 0 — 40,000,000 cycles of machine:
+
+| tune | gg mixer | gg dispatch | **gg total** | **turbo total** | change |
+|---|---:|---:|---:|---:|---:|
+| `coolbeans` | 3,205,405 | 265,494 | **3,470,899** (8.68 %) | **5,184,009** (12.96 %) | **+49.4 %** |
+| `changing-waves` | 4,257,833 | 311,319 | **4,569,152** (11.42 %) | **5,307,413** (13.27 %) | **+16.2 %** |
+
+(Step 4's 3,436,574 for `coolbeans` is within 1 % of the 3,470,899 here, which identifies it
+as a whole-path figure too — so step 4's −3.57 % and this table are on the same footing.)
+
+### Why — and it is not the loop's fault
+
+The loop is doing exactly what the benchmark promised. Mean cycles per instruction:
+
+| | turbo | gg |
+|---|---:|---:|
+| `coolbeans` | 2.547 | 2.768 |
+| `changing-waves` | 2.566 | 2.836 |
+
+**Turbo's instructions are 8–10 % cheaper each**, which is the write-traffic saving showing
+up exactly where step 5 said it would. The packing works.
+
+What sinks it is how much work it does. Turbo mixes 832 bytes every fill, always. QTM does
+not, and that is the point of its whole structure:
+
+| `coolbeans` channel-fill | share | cost in gg | cost in turbo |
+|---|---:|---|---|
+| really ended (`ce`) | 39.2 % | **nothing at all** — not one instruction | full price |
+| any volume (`an`) | 30.5 % | 5 instr/byte | full price |
+| repeating (`rav`) | 24.3 % | 5 instr/byte | full price |
+| repeat, full volume (`rfv`) | 6.0 % | 3 instr/byte | full price |
+
+Once a channel has really ended QTM stops writing to the buffer for it entirely, relying on
+it already being zero — 39 % of `coolbeans` channel-fills are free. Turbo pays full price
+for every one. It does 2008 lane-fills of work where gg does 1221: **64 % more bytes, for
+8 % cheaper bytes.**
+
+Per byte *actually mixed*, `coolbeans`: gg 12.62 cycles, turbo 11.62 — a real 8.0 % win, far
+short of the bench's 24.8 % because gg's 1221 include cheap full-volume fills. On
+`changing-waves` even that reverses: both builds write all 2008 lanes, but 36 % of gg's are
+`rnv`, a 2-instruction-per-byte clearing loop, so gg averages 10.19 cycles/byte against
+turbo's ≈11.9.
+
+The in-situ loop also costs ~11 % more per byte than the bench's 10.34, from reading four
+scattered sample streams instead of one small buffer — an expected, and honest, gap between
+a synthetic loop and the real access pattern.
+
+### The design error, precisely
+
+§3.2.4a's silence word is the mistake, and it is worth being exact about why, because it
+looked like the cleverest part of the design.
+
+It removes the *dispatch* — 0.6 % of the machine — by making every channel take the same
+code path. But the dispatch was never the cost. The dispatch was how QTM chose to **do less
+work**, and the four paths it chooses between differ by up to *everything*. Buying a 0.6 %
+saving by giving up a 40 % one is not a good trade, and no amount of measuring the inner
+loop would have revealed it: the loop is fine. The error is visible only in the whole-path
+number, which is why that is the number to measure.
+
+§3.2.2's per-tick code generation, which §3.2.4a dropped as unnecessary, is what solves
+this properly: generate the packed body from only the lanes that are live, so a fill with
+two live channels emits `MOV` + 2 × 4 + `STR` = 10 instructions per word instead of 18.
+
+That restores the skipping while keeping one write per four bytes. A first estimate for
+`coolbeans` — 2.44 live lanes per fill on average, 208 × (2 + 4 × 2.44) = 2446
+instructions/fill against gg's 2311, at 2.55 cycles each against gg's 2.77 — puts it at
+roughly **−3 %**, not −25 %. That is an estimate from this session's numbers, not a
+measurement, and it is small enough that it should be benchmarked before anything is built.
+
+The honest summary: Steve's packing is real and measures as advertised per byte. It is just
+worth less than QTM's existing habit of not mixing what it does not have to, and the two are
+harder to combine than §3.2.4a assumed.
+
 ## Caveats
 
 - One machine (A3000/ARM2/MEMC1), one emulator. Arculator's cycle model is good but is a

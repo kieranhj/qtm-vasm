@@ -55,6 +55,16 @@ VARIANTS = {
         listing=None, module=None, derives="alpha",
         patch="tools/gg/patch_dma.py",
         note="guard-gap mixer (experimental, no reference)"),
+    # QTM Turbo: the guard gap plus one interleaved loop that mixes all four
+    # channels into a register and writes the DMA buffer a word at a time
+    # (tools/turbo/patch_dma.py).  Also experimental, also no reference, and
+    # also derived from alpha so its path counters stay comparable with gg's.
+    "turbo": dict(
+        qtmrast=0, alphatest=-1, dmachoice=32, uS=32, dma=208,
+        dmashift1=4, dmashift2=6, dmashift3=7, maxchans=8,
+        listing=None, module=None, derives="alpha",
+        patch="tools/turbo/patch_dma.py",
+        note="lane-packed 4-channel mixer (experimental, no reference)"),
 }
 
 DEFAULT = "release"
