@@ -220,12 +220,19 @@ Two things fall out of this that are worth being blunt about:
 
 #### 3.2.4 The guard gap stops being optional
 
-§4 is listed below as an *enabler*. For Turbo it is a hard **prerequisite**, for a
-structural reason: today each channel is filled in its own pass, so `a2_chanctrl` can split
-that pass at that channel's sample end and dispatch to `a2_endanyvol` / `a2_repanyvol` /
-`a2_clearing`. One interleaved loop has four independent sample boundaries in it and cannot
-be split four ways. Either every channel is guaranteed not to end mid-fill, or Turbo does
-not work at all.
+§4 is listed below as an *enabler*. For Turbo it is a hard **prerequisite**, for a register
+reason rather than the structural one claimed here previously.
+
+QTM handles looping inline: `a2_repanyvol_loop` wraps with
+`SUBGE R1,R1,R5,LSL #12` every byte. Turbo could do the same — but per channel, which
+costs both an extra instruction *and* an extra live register (the repeat length) for each
+of the four channels. Four more registers is fatal to a budget that has at most three
+spare. So either the samples are pre-padded so no wrap is needed inside the fill, or Turbo
+does not fit.
+
+The dispatch is a second, weaker reason: with four channels in one loop, per-channel
+routine selection means 2⁴ combinations, which is what §3.2.2's per-tick codegen exists to
+solve.
 
 The guard must cover one fill at the maximum increment — 208 × ~4.0 ≈ 832 bytes per sample,
 under 26 KB for a full 31-sample MOD. Looping samples get their loop data pre-copied into
@@ -272,12 +279,14 @@ Pre-pad every sample offline with a gap pre-filled with its own loop data. The m
 then overrun the nominal sample end freely, which means:
 
 - no end-of-sample test anywhere in the inner loop;
-- **no per-fill split** — QTM currently dispatches through `a2_chanctrl` to
-  `a2_endanyvol` / `a2_repanyvol` / `a2_clearing` / `a2_not_ending` and splits each fill
-  around the sample boundary. With a guard gap, every fill becomes one straight unrolled
-  block plus a single cheap modulo fixup per channel per fill.
+- **no per-byte wrap.** An earlier version of this section claimed QTM splits each fill
+  around the sample boundary. It does not — `a2_chanctrl` picks *one* routine for the
+  whole fill, and `a2_repanyvol_loop` handles looping inline and branchlessly with
+  `SUBGE R1,R1,R5,LSL #12` after the `ADDS`. So the cost of looping is one instruction
+  per byte, not a split. A guard gap replaces that with a single fixup per fill.
 
-On its own that is a per-fill saving, not a per-byte one. Its real value is that a
+That is a per-byte saving of 1 clock on the 52 % of channel-fills measured as repeating —
+worth roughly 7 % of the mixer on its own. Its real value is that a
 branch-free inner loop is what makes §3.1 and §3.2 tractable at all — and, as §3.1 notes,
 what frees the flags they need.
 

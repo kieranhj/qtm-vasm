@@ -141,11 +141,20 @@ tunes; the effect of dropping it is noted below.
 
 Three things fall out, and two of them change the plan:
 
-**Repeating dominates — 52 % of all channel-fills cross a sample loop point.** In
+**Repeating dominates — 52 % of all channel-fills are in the looping state.** In
 `squidring` it is 95 %. The clean steady-state loop that §3 spends all its effort on is
-only 20 % of the work. Every one of those 52 % pays `a2_chanctrl` dispatch plus a fill
-split around the loop boundary. This is exactly what §4's guard gap deletes, and it makes
-§4 the biggest single lever found — not merely an enabler for Turbo.
+only 20 % of the work.
+
+What those 52 % actually cost needs care, and an earlier draft of this section got it
+wrong. There is **no per-fill split**: `a2_chanctrl` selects one routine for the whole
+fill, and `a2_repanyvol_loop` wraps inline and branchlessly with
+`SUBGE R1,R1,R5,LSL #12` straight after the `ADDS`. So looping costs *one instruction per
+byte* — 9 clocks/byte against the steady path's 8 — not a split. Removing it with a guard
+gap is worth about 7 % of the mixer, not the much larger figure a split would have implied.
+
+§4 keeps its promotion to first in the queue, but for a different reason: it is what makes
+Turbo fit in the register file (§3.2.4), and it is a pure data change that can be verified
+offline.
 
 **Ending is negligible — 0.3 %.** §3.1 spends a paragraph on `a2_endanyvol_unroll`'s flag
 juggling. It is real, but it is on a path that essentially never runs. The flag-budget
