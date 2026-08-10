@@ -75,7 +75,7 @@ def check(path, us, fill):
         if not s.length or s.loops or s.max_inc <= 0:
             continue
         oneshot += 1
-        end = s.off + s.length
+        end = s.off + s.play_len
         if s.guard < int(fill * s.max_inc) + 1:
             lo.append("sample %d: one-shot guard %d too small" % (s.index, s.guard))
             continue
@@ -87,9 +87,11 @@ def check(path, us, fill):
     for s in mod.samples:
         if not s.length or not s.loops or s.max_inc <= 0:
             continue
-        body = bytes(lut[b] for b in s.data)
+        body = bytes(lut[b] for b in s.data[:s.play_len])
         rlen = s.loop_len
-        loop_base = s.off + s.length + rlen
+        # The end pointer QTM derives at note-on: addr + rep_off + rep_len,
+        # which after truncation is just the end of the body.
+        loop_base = s.off + s.play_len
 
         # Only increments the guard was sized for.  Going faster than
         # analyse() promised is out of contract by construction, and is
@@ -108,7 +110,7 @@ def check(path, us, fill):
             step = max(1, rlen // 37)
             for k in range(0, rlen, step):
                 start = -(rlen << 12) + (k << 12)
-                limit = s.off + s.length + rlen + s.guard - 1
+                limit = s.off + s.play_len + s.guard - 1
                 a, ra = ref_loop(body, s.loop_start, rlen, start, inc_fx, fill)
                 try:
                     b, rb = guard_loop(bank, loop_base, rlen, start,
@@ -133,7 +135,7 @@ def check(path, us, fill):
         need = int(fill * s.max_inc) + 1
         if s.guard < need:
             lo.append("sample %d: guard %d < needed %d" % (s.index, s.guard, need))
-        if loop_base + need > s.off + s.length + rlen + s.guard:
+        if loop_base + need > s.off + s.play_len + s.guard:
             lo.append("sample %d: overrun leaves the bank" % s.index)
 
     name = Path(path).stem

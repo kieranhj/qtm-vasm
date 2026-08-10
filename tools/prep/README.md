@@ -24,10 +24,26 @@ the data; any sample touched by portamento (`1xx`/`3xx`) falls back to a period 
 
 ## Layout
 
-A looping sample is laid out as `[body][loop][guard]`, and the manifest's `loop_base`
-points at the end of that extra loop copy. The extra copy is not waste: QTM's steady-state
-loop indexes *backwards* from the repeat end with a negative offset, so it needs valid data
-on both sides of that point — one copy behind it, the guard in front.
+A sample is laid out as `[body][guard]`, where for a looping sample the body is
+**truncated at its loop end**. That truncation is not an optimisation, it is what makes
+the layout correct. QTM decides the end pointer at note-on (qtm_play.asm):
+
+```arm
+CMP   R3,#2
+ADDGT R1,R3,R2      ; repeating -> length = rep_off + rep_len
+ADD   R0,R0,R1      ; end address
+```
+
+so a looping sample never plays past its loop end, and the bytes immediately *before* the
+end pointer are already the loop. The steady-state mixer reads backwards from that pointer
+with a negative offset, so with the loop behind it and the guard (the same loop, repeated)
+in front, reads are correct on both sides with no per-byte wrap.
+
+It also drops genuinely dead data — 3432 bytes across the 17-song corpus, 2774 of them in
+`autumn-mood` alone.
+
+Because the end pointer is just `start + play_len`, repointing QTM at a prepared bank needs
+only the sample table's start address changed; `rep_off` and `rep_len` carry over unaltered.
 
 ## Provenance of `linlog.bin`
 

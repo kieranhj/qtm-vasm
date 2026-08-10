@@ -69,8 +69,27 @@ class Sample:
         return self.loop_len > 2
 
     @property
+    def play_len(self):
+        """How much of the sample is ever played.
+
+        QTM decides this at note-on (qtm_play.asm):
+
+            CMP   R3,#2
+            ADDGT R1,R3,R2      ; repeating -> length = rep_off + rep_len
+            ADD   R0,R0,R1      ; end address
+
+        so a looping sample ends at its loop end and anything past that is
+        dead weight.  Truncating there is not just a saving: it is what puts
+        the loop immediately before the end pointer, which is where the
+        steady-state loop's negative offset needs valid data.
+        """
+        if self.loops:
+            return min(self.loop_start + self.loop_len, self.length)
+        return self.length
+
+    @property
     def total(self):
-        return self.length + self.guard
+        return self.play_len + self.guard
 
 
 class Mod:
@@ -196,35 +215,31 @@ def analyse(mod, us, fill, floor_period):
 
 
 def build_guard(s, body):
-    """Trailing region, built from the already-converted body.
+    """Guard region, built from the already-converted, truncated body.
 
-    A one-shot gets `guard` bytes of silence -- 0x00 in log format, which is
-    lut[0] and what `a2_clearing` stores.
+    A one-shot gets silence -- 0x00 in log format, which is lut[0] and what
+    `a2_clearing` stores, so an overrun sounds exactly like the current
+    `MOVGE R6,#0` in a2_endanyvol_loop.
 
-    A looping sample gets `loop_len + guard` bytes of the loop, repeated.  The
-    extra loop_len matters: QTM's repeating loop keeps a *negative* offset from
-    the repeat end (`LDRB R6,[R4,R1,ASR #12]`) and wraps with
-    `SUBGE R1,R1,R5,LSL #12`, so the steady-state pointer lives at the end of
-    the first copy.  Putting a whole copy before that point, and the guard
-    after it, means both the first pass (which overruns past `length`) and the
-    steady loop (which overruns past the repeat end) read correct data.
-
-    Laying it out this way is why the runtime can drop the per-byte `SUBGE`
-    for a single fixup per fill -- the whole point of the exercise.
+    A looping sample gets the loop, repeated.  Because the body has been
+    truncated at the loop end, the bytes immediately *before* the end pointer
+    are already the loop, and these are the bytes immediately after it -- so
+    the negative-offset read is correct on both sides without a per-byte wrap.
     """
     if s.guard == 0:
         return b""
-    end = s.loop_start + s.loop_len
-    if not s.loops or s.loop_len <= 0 or end > len(body):
-        return b"\0" * s.guard          # one-shot, or a malformed loop
-    want = s.loop_len + s.guard
+    if not s.loops:
+        return b"\0" * s.guard
+    lo, hi = s.loop_start, s.play_len
+    if hi <= lo:
+        return b"\0" * s.guard          # malformed loop; treat as one-shot
     out = bytearray()
-    i = s.loop_start
-    while len(out) < want:
+    i = lo
+    while len(out) < s.guard:
         out.append(body[i])
         i += 1
-        if i >= end:
-            i = s.loop_start
+        if i >= hi:
+            i = lo
     return bytes(out)
 
 
@@ -233,7 +248,7 @@ def prepare(mod, lut, us, fill, floor_period):
     bank = bytearray()
     for s in mod.samples:
         s.off = len(bank)
-        body = bytes(lut[b] for b in s.data)
+        body = bytes(lut[b] for b in s.data[:s.play_len])
         bank += body + build_guard(s, body)
         while len(bank) % 4:
             bank.append(0)
@@ -243,14 +258,12 @@ def prepare(mod, lut, us, fill, floor_period):
 def write_out(path, mod, bank, us, fill):
     recs = bytearray()
     for s in mod.samples:
-        # loop_base: offset within the bank of the repeat *end* pointer the
-        # steady-state loop indexes backwards from -- one loop copy into the
-        # trailing region.  0xFFFFFFFF for a one-shot.
-        loop_base = (s.off + s.length + s.loop_len) if s.loops else 0xFFFFFFFF
-        recs += struct.pack("<6I", s.off, s.length,
+        # play_len is the end pointer QTM derives at note-on, so the end
+        # address is simply off+play_len -- no separate loop base needed.
+        recs += struct.pack("<5I", s.off, s.play_len,
                             s.loop_start if s.loops else 0xFFFFFFFF,
                             s.loop_len if s.loops else 0,
-                            s.guard, loop_base)
+                            s.guard)
     song = mod.raw[:1084 + mod.pattern_bytes]
     hdr = struct.pack("<4s6I", MAGIC, VERSION, fill, us, 31, len(song), len(bank))
     hdr += b"\0" * (64 - len(hdr))
