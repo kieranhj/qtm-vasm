@@ -271,6 +271,54 @@ starts a few fills apart. The fix is to match captures on QTM's own position fie
 workspace rather than assuming two runs align — worth doing before trusting a *small*
 difference, though the negative control already covers the large ones.
 
+## Step 5 — Turbo Form A, benchmarked in isolation
+
+Turbo needs bank-relative offsets, which are computed at note-on, so it cannot be confined
+to `qtm_dma.asm` the way step 4 was. Before paying for that, the inner loop was measured on
+its own: `tools/bench/bench.asm`, four candidate loops each filling one 832-byte DMA buffer
+(4 channels × 208, stride 4 — QTM's real layout), run under Arculator with QTM's sound
+shut down. A3000, MODE 0, 10 fills per test, 8320 bytes each.
+
+The four channels read from regions 8 KB apart, deliberately: reading them all from one
+DRAM page would flatter the packed loops, which is exactly what is under test.
+
+| test | cycles | cycles/byte | textbook | measured/textbook | accesses/byte |
+|---|---:|---:|---:|---:|---:|
+| 0 QTM any-volume (today) | 114,502 | 13.76 | 8.00 | 1.72× | 7.00 |
+| 1 QTM full-volume | 92,256 | 11.09 | 6.00 | 1.85× | 5.00 |
+| **2 Turbo Form A** | **85,595** | **10.29** | 6.75 | 1.52× | 5.75 |
+| 3 Turbo prescaled | 80,089 | 9.63 | 5.75 | 1.67× | 4.75 |
+
+**Turbo Form A is −25.2 % against the path QTM actually uses.** The clock-count model in
+§3.2.3 predicted −15.6 %; counting memory accesses predicted −25 %. The measurement lands
+on the access-based figure almost exactly, which is the clearest confirmation yet that
+Steve's bandwidth intuition is the right way to think about this machine and instruction
+counting is not.
+
+Two results that change the design:
+
+**Form A beats the full-volume path too, by 7.2 %.** §3.2.3 warned that Form A at a
+modelled 6.75 clocks/byte would be *slower* than today's 6-clock full-volume loop, and that
+Turbo would therefore need its own full-volume variant with per-tick codegen to select it.
+That is now measured to be false: packing wins even against the cheaper loop, because it is
+trading instruction-count for memory traffic and traffic is what costs. Per-tick codegen
+drops from a requirement to an option worth maybe 6 % more (test 3 over test 2).
+
+**Prescaled samples buy less than expected.** Test 3 removes the volume subtract entirely
+and gains only 6.4 % over test 2, for *N* × sample memory. Tick-patched volume immediates
+keep that gain at zero memory cost, so prescaling stays off the table.
+
+### Caveats specific to this benchmark
+
+Absolute cycles/byte are higher than the in-situ figures above (13.76 for pure any-volume
+against QTM's path-averaged 8.53) because this runs one path with no cheap clearing fills
+mixed in, from application RAM rather than the RMA, with a harsher four-region access
+pattern. The *relative* comparison is the result; the absolute numbers are not comparable
+with Result 2. All four tests share those conditions, so the ratio is sound.
+
+Every channel also uses the same increment (0.8125) and none of the loops handles a sample
+ending, so this measures steady-state throughput only.
+
 ## Caveats
 
 - One machine (A3000/ARM2/MEMC1), one emulator. Arculator's cycle model is good but is a

@@ -202,6 +202,13 @@ spare** — better than Steve expected. What it still cannot reach is Form B's s
 
 #### 3.2.3 What it actually saves — and where the honest uncertainty is
 
+> **Now measured.** `tools/bench/bench.asm` on an 8 MHz ARM2 gives Form A at **−25.2 %**
+> against the any-volume path, against the −15.6 % this section's clock-count model
+> predicts and the −25 % the access-count model predicts. It also beats the *full-volume*
+> path by 7.2 %, which falsifies the warning below that Form A would be slower there. See
+> [`MEASUREMENTS.md`](MEASUREMENTS.md) step 5. The reasoning below is kept because the two
+> models disagreeing is the point; the access-based one won.
+
 Per 4-byte word, including `MOV Rout,#0` and the `STR`:
 
 | | clocks/byte | vs today |
