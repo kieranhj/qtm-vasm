@@ -157,7 +157,20 @@ and the fraction in separate registers so the carry means "index advanced"):
 | B, volume out of registers | ptr, frac, inc, scratch | dest, out | **18 ✗** | 14 ✓ |
 | B, per-channel volume | + vol | dest, out | ✗ | **17 ✗** |
 
-Against R0–R14 = 15. This reproduces Steve's 1993 conclusion exactly, and sharpens it:
+Against R0–R14 = 15 — but **14 in practice**, which is a correction to what this section
+said before. R13 is the stack pointer and every unrolled routine ends
+`LDMFD R13!,{R4-R6,R12,PC}^`, so it has to survive the loop. It *can* be freed by parking
+it in workspace for the duration (~4 instructions per fill, affordable against 208 bytes),
+but that has to be a deliberate choice rather than an accounting assumption. Every row
+below is one register tighter than it looks.
+
+This is what makes the shared bank base decisive rather than merely tidy: collapsing four
+per-channel base registers into one is the difference between not fitting and fitting with
+room to spare. The prepared bank from `tools/prep` already lays every sample out
+contiguously, so the base exists — what it costs is bank-relative offsets, which are
+computed at note-on in `qtm_play.asm`, so Turbo cannot be confined to `qtm_dma.asm`.
+
+This reproduces Steve's 1993 conclusion exactly, and sharpens it:
 **you can have four channels, or the load-skipping DDA, or per-channel volume registers —
 any two, never all three.** Note the loop must be fully unrolled: there is no register left
 for a counter (QTM already unrolls its mixers at runtime, so this costs nothing new).
