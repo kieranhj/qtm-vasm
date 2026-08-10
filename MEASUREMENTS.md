@@ -282,12 +282,34 @@ shut down. A3000, MODE 0, 10 fills per test, 8320 bytes each.
 The four channels read from regions 8 KB apart, deliberately: reading them all from one
 DRAM page would flatter the packed loops, which is exactly what is under test.
 
-| test | cycles | cycles/byte | textbook | measured/textbook | accesses/byte |
+| test | cycles | cycles/byte | textbook | measured/textbook | vs test 0 |
 |---|---:|---:|---:|---:|---:|
-| 0 QTM any-volume (today) | 114,502 | 13.76 | 8.00 | 1.72× | 7.00 |
-| 1 QTM full-volume | 92,256 | 11.09 | 6.00 | 1.85× | 5.00 |
-| **2 Turbo Form A** | **85,595** | **10.29** | 6.75 | 1.52× | 5.75 |
-| 3 Turbo prescaled | 80,089 | 9.63 | 5.75 | 1.67× | 4.75 |
+| 0 QTM any-volume (today) | 114,360 | 13.75 | 8.00 | 1.72× | — |
+| 1 QTM full-volume | 92,256 | 11.09 | 6.00 | 1.85× | −19.3 % |
+| 2 Turbo Form A, unrolled ×208 | 85,595 | 10.29 | 6.75 | 1.52× | **−25.2 %** |
+| 3 Turbo prescaled, unrolled ×208 | 80,089 | 9.63 | 5.75 | 1.67× | −30.0 % |
+| 4 Turbo Form A, unrolled ×8 + loop | 96,549 | 11.60 | 6.88 | 1.69× | −15.6 % |
+| **5 Turbo Form A, unrolled ×26 + loop** | **86,048** | **10.34** | 6.79 | 1.52× | **−24.8 %** |
+
+Tests 1–3 were measured in an earlier session at different addresses; test 0 reproduced
+across both to within 0.12 %, so they are comparable.
+
+### The unroll factor matters far more than the branch count suggests
+
+Tests 2–5 exist because full unrolling cannot actually be built. Volume is an immediate —
+that is what frees the four volume registers — so it has to be patched into the code, and
+208 words × 4 channels is **832 patch sites per fill**, as much work as the fill itself.
+Unrolling by 8 and looping cuts that to 32.
+
+But test 4 lost 12.8 % against test 2, where the timings predict about 2 %: a taken branch
+costs a pipeline refill *and* breaks sequential instruction fetch, so MEMC's page mode is
+lost every 8 words. Instruction fetch is memory traffic too, and it obeys the same rule as
+everything else here.
+
+Test 5 unrolls by 26 (208 = 26 × 8) and gets back to within **0.5 %** of full unrolling,
+with 104 patch sites — affordable, and only actually rewritten when a channel's volume
+changes, which is at tick rate rather than fill rate. That is the shape the real
+implementation should take.
 
 **Turbo Form A is −25.2 % against the path QTM actually uses.** The clock-count model in
 §3.2.3 predicted −15.6 %; counting memory accesses predicted −25 %. The measurement lands

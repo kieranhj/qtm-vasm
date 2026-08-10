@@ -33,7 +33,11 @@ bench:
 	BEQ	t_fullvol
 	CMP	R0,#2
 	BEQ	t_packed
-	B	t_packed_pre
+	CMP	R0,#3
+	BEQ	t_packed_pre
+	CMP	R0,#4
+	BEQ	t_packed8
+	B	t_packed26
 
 ; ---------------------------------------------------------------- test 0
 ; QTM as it stands: any-volume, one strided pass per channel.
@@ -164,16 +168,130 @@ t_packed_pre:
 	STR	R10,[R13,#12]
 	BGT	t_packed_pre
 
+; ---------------------------------------------------------------- test 4
+; Turbo Form A as it would actually have to be built.
+;
+; Tests 2 and 3 unroll all 208 words, which cannot work in the real player:
+; the volume immediates have to be patched every fill, and 208 words x 4
+; channels is 832 patch sites -- as much work as the fill itself.  Unrolling
+; by 8 and looping cuts that to 32 sites, at the cost of one counter register
+; and a branch every 8 words.
+;
+; This is also the real register allocation, and it uses all 14:
+;   R0 bank  R1-R4 offsets  R5-R8 increments  R9 dest
+;   R10 scratch  R11 output word  R12 inner count  R14 outer count
+; R13 is left alone, which is the constraint OPTIMISATION 3.2.1 originally
+; missed.
+t_packed8:
+	MOV	R14,R10                 ; reps
+tp8_rep:
+	MOV	R0,R9                   ; bank base   (R9 still holds bank here)
+	MOV	R9,R8                   ; dest
+	MOV	R1,#0
+	MOV	R2,#CHANSTEP
+	MOV	R3,#CHANSTEP * 2
+	MOV	R4,#CHANSTEP * 3
+	MOV	R5,#INC
+	MOV	R6,#INC
+	MOV	R7,#INC
+	MOV	R8,#INC
+	MOV	R12,#FILL / 8
+tp8_inner:
+	.rept	8
+	MOV	R11,#0
+	LDRB	R10,[R0,R1,LSR #12]
+	SUBS	R10,R10,#VOL
+	ORRPL	R11,R11,R10
+	ADD	R1,R1,R5
+	LDRB	R10,[R0,R2,LSR #12]
+	SUBS	R10,R10,#VOL
+	ORRPL	R11,R11,R10,LSL #8
+	ADD	R2,R2,R6
+	LDRB	R10,[R0,R3,LSR #12]
+	SUBS	R10,R10,#VOL
+	ORRPL	R11,R11,R10,LSL #16
+	ADD	R3,R3,R7
+	LDRB	R10,[R0,R4,LSR #12]
+	SUBS	R10,R10,#VOL
+	ORRPL	R11,R11,R10,LSL #24
+	ADD	R4,R4,R8
+	STR	R11,[R9],#4
+	.endr
+	SUBS	R12,R12,#1
+	BNE	tp8_inner
+	MOV	R8,R9                   ; restore dest/bank for the next rep
+	SUB	R8,R8,#FILL * 4
+	MOV	R9,R0
+	SUBS	R14,R14,#1
+	BGT	tp8_rep
+
+; ---------------------------------------------------------------- test 5
+; The same, unrolled by 26 instead of 8 (208 = 26 x 8, so the loop runs 8
+; times).  Test 4 lost far more to its branch than the 4 cycles/iteration the
+; timings predict, because a taken branch breaks sequential instruction fetch
+; and with it MEMC's page mode.  If that is the cause, a longer body should
+; recover most of it -- and 26 x 4 = 104 volume patch sites per fill is still
+; affordable, where 832 is not.
+t_packed26:
+	MOV	R14,R10
+tp26_rep:
+	MOV	R0,R9
+	MOV	R9,R8
+	MOV	R1,#0
+	MOV	R2,#CHANSTEP
+	MOV	R3,#CHANSTEP * 2
+	MOV	R4,#CHANSTEP * 3
+	MOV	R5,#INC
+	MOV	R6,#INC
+	MOV	R7,#INC
+	MOV	R8,#INC
+	MOV	R12,#FILL / 26
+tp26_inner:
+	.rept	26
+	MOV	R11,#0
+	LDRB	R10,[R0,R1,LSR #12]
+	SUBS	R10,R10,#VOL
+	ORRPL	R11,R11,R10
+	ADD	R1,R1,R5
+	LDRB	R10,[R0,R2,LSR #12]
+	SUBS	R10,R10,#VOL
+	ORRPL	R11,R11,R10,LSL #8
+	ADD	R2,R2,R6
+	LDRB	R10,[R0,R3,LSR #12]
+	SUBS	R10,R10,#VOL
+	ORRPL	R11,R11,R10,LSL #16
+	ADD	R3,R3,R7
+	LDRB	R10,[R0,R4,LSR #12]
+	SUBS	R10,R10,#VOL
+	ORRPL	R11,R11,R10,LSL #24
+	ADD	R4,R4,R8
+	STR	R11,[R9],#4
+	.endr
+	SUBS	R12,R12,#1
+	BNE	tp26_inner
+	MOV	R8,R9
+	SUB	R8,R8,#FILL * 4
+	MOV	R9,R0
+	SUBS	R14,R14,#1
+	BGT	tp26_rep
+
 done:
 	LDMFD	R13!,{R0-R12,PC}
 
-; Measured on an A3000 (ARM2 8MHz, MODE 0), 10 fills per test:
+; Measured on an A3000 (ARM2 8MHz, MODE 0), 10 fills per test, 8320 bytes:
 ;
-;   test                        cycles   cyc/byte  textbook   ratio
-;   0  QTM any-volume (today)   114502     13.76      8.00     1.72x
-;   1  QTM full-volume           92256     11.09      6.00     1.85x
-;   2  Turbo Form A              85595     10.29      6.75     1.52x
-;   3  Turbo prescaled           80089      9.63      5.75     1.67x
+;   test                                cycles  cyc/byte  vs test 0
+;   0  QTM any-volume (today)           114360    13.75      --
+;   1  QTM full-volume                   92256    11.09    -19.3%
+;   2  Turbo Form A, unrolled x208       85595    10.29    -25.2%
+;   3  Turbo prescaled,  unrolled x208   80089     9.63    -30.0%
+;   4  Turbo Form A, unrolled x8 + loop  96549    11.60    -15.6%
+;   5  Turbo Form A, unrolled x26 + loop 86048    10.34    -24.8%
 ;
-; Form A is -25.2% against any-volume and -7.2% against full-volume.
+; Full unrolling is not buildable -- 208 words x 4 channels is 832 volume
+; patch sites per fill.  Unrolling by 8 makes that 32 but costs 12.8%,
+; because a taken branch breaks sequential instruction fetch and MEMC's page
+; mode with it.  Unrolling by 26 comes within 0.5% of full unrolling with 104
+; patch sites, and is the shape to build.
+;
 ; See MEASUREMENTS.md step 5.
