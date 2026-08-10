@@ -2,8 +2,13 @@
 
 This carries forward the analysis in
 [`LSP_ARM250/ANALYSIS.md`](../LSP_ARM250/ANALYSIS.md) §9, written while porting LSP to the
-ARM250, and restates it against the code that now exists here. Everything below is
+ARM250, and restates it against the code that now exists here. Everything in §§1–6 is
 *derived from instruction counts and PRM timings, not measured* — see §5.
+
+> **§§1–6 have since been measured, and several of their predictions were wrong.**
+> Read [§7](#7-what-measurement-found) first: it summarises what an 8 MHz ARM2 actually
+> does, and ranks what is worth taking forward. §§1–6 are kept as written, because the
+> places the analysis went wrong are the most useful part of it.
 
 §3.2 additionally incorporates Steve Harrison's own "QTM Turbo" idea, sent in response to
 this repository; it turns out to be the same idea as the lane-packing entry already here,
@@ -334,3 +339,96 @@ question is a bandwidth question that only measurement can answer.
 
 Steps 1–2 are the whole decision. Steps 3–4 are worth doing regardless of what 1–2 say,
 because they simplify the mixer and are independently measurable.
+
+*(Steps 1–5 have since been carried out; see §7 for what they found, and note that step 5
+came out as a regression.)*
+
+## 7. What measurement found
+
+Everything above was written before any of it ran. It has now been measured on an 8 MHz
+ARM2 under Arculator, cycle-exact, with the guard gap and the Turbo mixer both built and
+verified byte-exact against QTM's own output. The full method, numbers and caveats are in
+`MEASUREMENTS.md` on the **`turbo-measurement`** branch; this section is the summary.
+
+Conditions throughout: A3000, MODE 0, 48 µs/channel, 5 s windows from song position 0,
+real MODs (`coolbeans`, `changing-waves` and five others), `python build.py alpha` for the
+path counters.
+
+### The five results that matter
+
+**1. The mixer is 8.9 % of the machine, and the interpreter is 0.4 %.** The ratio is
+**23:1**, at the top of §1's predicted 10:1–30:1. An LSP-style stream frontend would attack
+0.4 % of the cost. §1 stands.
+
+**2. Screen mode costs more than any code change on the table.** The same work — identical
+instruction counts, verified — costs **+40 % more cycles** in MODE 15 than MODE 0, because
+MEMC gives video DMA priority over the CPU. The memory tax on the mixer runs 1.54×–2.16×
+depending on mode. §3.4 was right that this may dominate everything else, and it costs no
+code at all.
+
+**3. Instruction counting is the wrong instrument here; memory traffic is the right one.**
+This came out three times. The guard gap removed 9.4 % of the mixer's instructions and only
+3.6 % of its cycles, because the instruction it removed was the *cheapest* one. Unrolling
+the packed loop by 8 instead of 26 cost 12.8 %, entirely because a taken branch breaks
+MEMC's page mode on instruction fetch. And Turbo's inner loop hit −24.8 % where the
+clock-count model said −15.6 % and the memory-access model said −25 %. Steve's bandwidth
+intuition is the correct way to think about this machine.
+
+**4. The guard gap works, and is worth about 6 %.** Built as `build.py gg`: samples
+pre-padded offline so the mixer may overrun, which deletes the per-byte loop wrap. Measured
+−3.57 % on `coolbeans` (which loops unusually little), ≈ −6 % corpus-typical. Proved
+equivalent offline on 17/17 songs and confirmed in situ by spectral correlation with a
+negative control (0.999 prepared vs 0.789 unprepared). The offline preparation pass also
+deletes QTM's load-time log conversion outright.
+
+**5. Turbo's inner loop is 25 % faster and the build is 49 % slower.** Both are true and
+the gap between them is the finding. `build.py turbo` packs all four channels into one
+interleaved loop writing the DMA buffer a word at a time; it is byte-exact (832/832 bytes
+against QTM's mixer on captured fills) and its instructions measure 8–10 % cheaper each.
+But it costs **+49 % on `coolbeans` and +16 % on `changing-waves`** on the whole DMA path,
+because packing four channels into one loop means always mixing four channels — and QTM's
+entire structure is about not doing that. **39 % of `coolbeans` channel-fills have already
+ended and cost stock QTM nothing at all.** Turbo does 64 % more bytes for 8 % cheaper bytes.
+
+The lesson worth carrying: **measure the whole path, not the loop.** Results 4 and 5 are
+both cases where the inner loop behaved exactly as benchmarked and the build still
+disappointed. Neither error was visible from inside the loop.
+
+### What to take forward, in order of value
+
+| | change | measured / estimated | state |
+|---|---|---|---|
+| 1 | **Screen mode budget** (§3.4) | **up to −40 %** of mixer cost | measured; no code |
+| 2 | **Offline sample prep + guard gap** (§4) | **−6 %** typical, plus load-time work deleted | built (`gg`), verified |
+| 3 | **Per-tick codegen'd packed loop** (§3.2.4b) | ≈ −3 %, *estimated* | needs benchmarking first |
+| 4 | **Turbo Form B / DDA** (§3.1) | largest theoretical win | unbuilt; register-bound |
+| 5 | **Word fetch with shift extraction** (§3.3) | untested | unbuilt |
+| — | ~~Turbo Form A as specified~~ (§3.2.4a) | **+49 %** | built; do not use |
+| — | ~~LSP-style stream frontend~~ | ≤ 0.4 % available | not worth doing |
+
+Notes on each:
+
+1. **Screen mode is a design decision, not an optimisation.** If the goal is "more CPU left
+   for the demo", choosing the screen mode is a bigger lever than any mixer work, and it is
+   free. Worth deciding before writing code, not after.
+
+2. **The guard gap is the one finished win.** It is also a precondition for anything that
+   restructures the inner loop, and the offline pass (`tools/prep`) moves log conversion and
+   loop preparation off the Archimedes entirely — which matters more for demo development
+   than the 6 %.
+
+3. **The packed loop needs the dispatch back.** Generating the loop body per tick from only
+   the live lanes keeps one write per four bytes *and* keeps QTM's skipping. But it
+   estimates at ≈ −3 %, not −25 %, so benchmark 2- and 3-live-lane variants
+   (`tools/bench/bench.asm`) before writing any code generator. This is the only route by
+   which Turbo pays.
+
+4. **Form B is where the theory says the win is** — exploiting increment < 1 to skip the
+   load — but it needs a register budget that does not exist at four channels, and the flag
+   interactions are the ones §3.1 warns about. Nothing here has been measured.
+
+5. Untouched, and probably only interesting in combination with 4.
+
+The three pieces of Turbo that are keepers regardless of 3: the guard gap, tick-patched
+volume immediates (volume out of registers at zero cost), and `ORRPL` folding the silence
+clamp into the pack.

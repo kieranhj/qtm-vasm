@@ -30,7 +30,9 @@ missed.
 
 [`OPTIMISATION.md`](OPTIMISATION.md) is where the port leads: the mixer inner loop is now
 editable in the same toolchain as `LSP_ARM250` and `rasterman-vasm`, with four verified
-baselines to regress against.
+baselines to regress against. Its §7 summarises what an 8 MHz ARM2 was then measured to
+actually do — including one idea that benchmarked at −25 % and cost +49 % in situ — and
+ranks what is worth taking forward.
 
 ## Building
 
@@ -67,7 +69,7 @@ a rule-driven text transformation rather than a metaprogramming exercise.
 
 ```
 PLAN.md                   the plan — read this first
-OPTIMISATION.md           where the mixer headroom is, and how to measure it
+OPTIMISATION.md           where the mixer headroom is, measured (§7 for the findings)
 ref/QTMModule             released v1.49b binary; the byte-identity target
 ref/source-tokenised/     original tokenised BASIC V sources, unaltered
 ref/source-text/          detokenised text of the same, for reading and diffing
