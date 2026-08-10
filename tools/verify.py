@@ -31,7 +31,13 @@ VARIANT = variants.DEFAULT
 if "--variant" in sys.argv:
     VARIANT = sys.argv[sys.argv.index("--variant") + 1]
 
-TOP = variants.shared_dir() / "qtm.asm"
+# A variant that overlays modified sources keeps its own copy of the top-level
+# file, because vasm resolves .include relative to the including file's
+# directory before -I; assembling src/shared/qtm.asm would silently pull in the
+# shared copies of everything and ignore the overlay.
+TOP = variants.src_dir(VARIANT) / "qtm.asm"
+if not TOP.exists():
+    TOP = variants.shared_dir() / "qtm.asm"
 OUT = ROOT / "build" / ("qtm-%s.bin" % VARIANT)
 REF = variants.module_path(VARIANT)
 LISTING = variants.listing_path(VARIANT)
@@ -55,8 +61,8 @@ def build():
         return False
     OUT.parent.mkdir(exist_ok=True)
     cmd = [str(VASM), "-m250", "-Fbin",
-           "-I", str(variants.src_dir(VARIANT)),   # config header and stamps
-           "-I", str(TOP.parent),                   # the shared sources
+           "-I", str(variants.src_dir(VARIANT)),   # config header, stamps, overlays
+           "-I", str(variants.shared_dir()),        # the shared sources
            "-o", str(OUT), str(TOP)]
     print("$ " + " ".join(cmd))
     r = subprocess.run(cmd, capture_output=True, text=True)
@@ -162,6 +168,14 @@ def main():
     if "--no-build" not in sys.argv:
         if not build():
             return 1
+    if not variants.has_reference(VARIANT):
+        # An experimental variant has no ground truth to be identical to;
+        # report what was built so a change in size is at least visible.
+        got = OUT.read_bytes()
+        print("\nsize   built %d  (no reference -- experimental variant)"
+              % len(got))
+        print("crc    built %08X" % crc(got))
+        return 0
     return compare()
 
 

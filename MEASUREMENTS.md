@@ -191,6 +191,63 @@ a cleverer answer to the persistent-scratch problem. That ranking is unchanged; 
 changed is that the memory-traffic argument is now measured fact rather than a hypothesis,
 and it is worth 1.5–2.2× what the clock-count model credited it with.
 
+## Step 4 — the guard-gap mixer, measured
+
+The `gg` variant (`python build.py gg`) is the first build here that is *not* a translation
+of the original. `tools/gg/patch_dma.py` deletes `SUBGE R1,R1,R5,LSL #12` from the three
+repeat loops and normalises the offset once per fill at the top of `a2_chanctrl` instead.
+It has no reference binary and never will; the four that do still verify 4/4.
+
+Samples come from `tools/prep`, loaded into an RMA block and pointed at by rewriting only
+the **start address** in QTM's sample table — `rep_off` and `rep_len` carry over unchanged,
+because the end pointer QTM derives is just `start + rep_off + rep_len`. No loader changes.
+
+`coolbeans`, MODE 0, 48 µs, 5 s from position 0:
+
+| | alpha (stock) | gg (guard gap) | change |
+|---|---:|---:|---:|
+| Mixer cycles | 3,563,680 | 3,436,574 | **−3.57 %** |
+| Mixer instructions | 1,347,383 | 1,220,919 | −9.39 % |
+| Share of machine | 8.91 % | 8.59 % | −0.32 pt |
+
+**The model predicted this almost exactly.** 610 repeating fills × 208 bytes = 126,880
+instructions that should disappear; 126,464 did. Each cost 1.005 cycles — a bare
+instruction fetch, which is why a 9.4 % instruction cut is only a 3.6 % cycle cut: the
+`SUBGE` was the cheapest instruction in the loop, and the expensive `LDRB`/`STRB` remain.
+
+`coolbeans` is below average for looping (30.4 % against the corpus's 52.5 %), so a typical
+tune should see about **−6 %**. That is the whole of the guard gap's direct value, and it
+is worth restating that this is not why it matters: it matters because it frees the
+per-channel repeat-length register that Turbo cannot afford.
+
+The path counters are identical between the two builds (`an` 611, `rav` 487, `rfv` 123,
+`ce` 783), confirming the dispatch decisions are unchanged and the two runs are mixing the
+same music.
+
+### Does it sound right?
+
+Exact equivalence was already proved offline (`tools/prep/verify.py`, 17/17 songs). The
+emulator's job is to confirm the ARM implementation matches that model.
+
+Captured 5 s from each build at the same song position and compared:
+
+| | value |
+|---|---|
+| Peak / RMS | 5847/10051, 3280/3730 vs 5849/9973, 3278/3736 |
+| Spectral correlation (<16 kHz) | **0.999436** |
+| Envelope error (10 ms RMS windows) | mean 0.85 %, median 0.34 % |
+| Near-clipping samples | 0 in both |
+
+The captures are **not** bit-identical, and cannot be: the emulator resamples 83,333 Hz to
+48,000 Hz, and the two runs start ~12 ms apart, so a fractional-sample offset makes almost
+every sample differ while the signal is the same. That is why the comparison is done on
+quantities insensitive to sub-sample phase. Sample-wise comparison of the captures is
+meaningless here and was discarded as such, not massaged.
+
+What this does *not* yet do is compare the mixer's own output byte-for-byte. The DMA buffer
+is the exact artefact — `QTM_DMABuffer` returns its address — and comparing it at a
+breakpoint-synchronised fill would close the loop. That is the one verification still owed.
+
 ## Caveats
 
 - One machine (A3000/ARM2/MEMC1), one emulator. Arculator's cycle model is good but is a

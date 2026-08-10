@@ -68,6 +68,15 @@ def generate(variant):
         deferred += len([l for l in r.stderr.splitlines()
                          if l.strip().startswith("line ")])
     run(["tools/mktoplevel.py", driver(), "--variant", variant])
+
+    # An experimental variant may overlay modified copies of the generated
+    # sources into src/<variant>/, which vasm picks up first because that
+    # directory precedes src/shared/ on the include path.  The overlay is
+    # produced by a script rather than checked in by hand, so it survives
+    # regeneration of the file it patches.
+    patch = variants.get(variant).get("patch")
+    if patch:
+        run([patch, "--variant", variant])
     return deferred
 
 
@@ -79,13 +88,16 @@ def shared_hashes():
 def main():
     argv = [a for a in sys.argv[1:] if not a.startswith("-")]
     check_only = "--check" in sys.argv
-    wanted = argv or list(variants.VARIANTS)
+    # Experimental variants are opt-in: a bare `python build.py` checks the
+    # four that have ground truth, and says nothing about the others.
+    wanted = argv or [v for v in variants.VARIANTS if variants.has_reference(v)]
 
     failures, baseline = [], None
     for variant in wanted:
         info = variants.get(variant)
         print("\n=== %s -- %s ===" % (variant, info["note"]))
-        if not variants.module_path(variant).exists():
+        if variants.has_reference(variant) and \
+                not variants.module_path(variant).exists():
             print("  no reference binary (%s); skipping" % info["module"])
             continue
         if not check_only:

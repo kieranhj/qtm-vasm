@@ -43,6 +43,18 @@ VARIANTS = {
         dmashift1=4, dmashift2=6, dmashift3=7, maxchans=8,
         listing="listing-alpha.txt", module="QTMModule-alpha",
         note="alpha test: DMA instrumentation counters, debug SWI"),
+    # Experimental, and the first variant that is NOT a translation of the
+    # original: the mixer is modified (see tools/gg/patch_dma.py) to drop the
+    # per-byte loop wrap, which only works against samples prepared by
+    # tools/prep.  It has no reference binary and never will, so it is built
+    # and reported but not compared.  It derives from alpha so the DMA path
+    # counters are available for a like-for-like measurement against it.
+    "gg": dict(
+        qtmrast=0, alphatest=-1, dmachoice=32, uS=32, dma=208,
+        dmashift1=4, dmashift2=6, dmashift3=7, maxchans=8,
+        listing=None, module=None, derives="alpha",
+        patch="tools/gg/patch_dma.py",
+        note="guard-gap mixer (experimental, no reference)"),
 }
 
 DEFAULT = "release"
@@ -58,12 +70,29 @@ def get(name):
     return VARIANTS[name]
 
 
+def base(name):
+    """The variant whose ground-truth artefacts this one is generated against.
+
+    An experimental variant has no listing or reference binary of its own, but
+    generation still needs both -- bas2vasm reads the reference to derive the
+    post-assembly patches, and the golden listing to resolve label addresses.
+    It borrows them from the variant it derives from; only the *comparison* is
+    skipped, via has_reference().
+    """
+    return get(name).get("derives") or name
+
+
+def has_reference(name):
+    """False for experimental variants, which are built but not compared."""
+    return get(name).get("derives") is None
+
+
 def listing_path(name):
-    return ROOT / "ref" / get(name)["listing"]
+    return ROOT / "ref" / get(base(name))["listing"]
 
 
 def module_path(name):
-    return ROOT / "ref" / get(name)["module"]
+    return ROOT / "ref" / get(base(name))["module"]
 
 
 def src_dir(name):

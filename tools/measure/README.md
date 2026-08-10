@@ -34,3 +34,17 @@ measurement window, or successive windows measure different parts of the song.
 
 **MODE 15 needs more screen memory** than the default: `SYS &2A,2,&30000` first
 (`OS_ChangeDynamicArea` on area 2), otherwise RISC OS silently keeps the current mode.
+
+## More gotchas found in step 4
+
+**The module is registered as `QTMTracker`, not `QTM`.** `*RMKill QTM` and
+`OS_Module 18,"QTM"` both fail with *Module QTM not found*. Use `*RMKill QTMTracker`.
+
+**`~` does not survive `type_text` either**, so `PRINT ~J%` prints decimal. Anything that
+needs hex output should go through a file, as `h11` does — hand-converting the decimal is
+how one measurement got pointed at the wrong address.
+
+**Addresses move on every `RMKill`/`RMLoad`.** The runtime-unrolled mixer is in claimed RMA
+blocks, and after a few reloads they end up scattered *below* the module rather than above
+it. Never reuse an address between runs: read the jump table via `swi_qtmdebug` each time
+and derive the profile range from it.
