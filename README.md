@@ -30,7 +30,8 @@ missed.
 
 [`OPTIMISATION.md`](OPTIMISATION.md) is where the port leads: the mixer inner loop is now
 editable in the same toolchain as `LSP_ARM250` and `rasterman-vasm`, with four verified
-baselines to regress against.
+baselines to regress against. [`MEASUREMENTS.md`](MEASUREMENTS.md) is what the mixer
+actually costs on an 8 MHz ARM2, measured under emulation rather than estimated.
 
 ## Building
 
@@ -68,6 +69,8 @@ a rule-driven text transformation rather than a metaprogramming exercise.
 ```
 PLAN.md                   the plan — read this first
 OPTIMISATION.md           where the mixer headroom is, and how to measure it
+MEASUREMENTS.md           what it actually costs on an ARM2 — measured, not modelled
+tools/measure/            guest-side harnesses for those measurements
 ref/QTMModule             released v1.49b binary; the byte-identity target
 ref/source-tokenised/     original tokenised BASIC V sources, unaltered
 ref/source-text/          detokenised text of the same, for reading and diffing

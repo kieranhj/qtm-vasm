@@ -16,6 +16,10 @@ ref/QTMModule-*            binary
 # *Exec'd into BASIC under RISC OS, which terminates text lines with LF.
 tools/emulator/ListPtch*   text eol=lf
 
+# Also *Exec'd, but these are fed to BASIC as if typed, so lines must end with
+# CR (0x0D) -- the keyboard Return. No EOL conversion of any kind.
+tools/measure/*.bas        -text
+
 # Ordinary text
 *.md                       text eol=lf
 *.py                       text eol=lf

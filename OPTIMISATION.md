@@ -5,6 +5,15 @@ This carries forward the analysis in
 ARM250, and restates it against the code that now exists here. Everything below is
 *derived from instruction counts and PRM timings, not measured* — see §5.
 
+> **Step 1 is now done and much of this is measured.** See
+> [`MEASUREMENTS.md`](MEASUREMENTS.md). The headline corrections: the mixer:interpreter
+> ratio is **23:1** (§1's range holds); the same mixer costs **+40 % cycles** in a
+> 256-colour mode than a 2-colour one for byte-identical work, and runs at **1.54–2.16×**
+> the textbook instruction timings, so the clock-count model in §3.2.3 understates the
+> memory-traffic argument badly; and **52 % of channel-fills cross a sample loop point**,
+> which promotes §4 from enabler to the largest single lever. §3.1's flag-budget concern
+> sits on the *ending* path, which is 0.3 % of the work.
+
 §3.2 additionally incorporates Steve Harrison's own "QTM Turbo" idea, sent in response to
 this repository; it turns out to be the same idea as the lane-packing entry already here,
 and his framing of it is the better one.
@@ -310,15 +319,16 @@ Turbo (§3.2) is the target. The order below is forced by §3.2.4 — the guard 
 exist before a packed loop can be written at all — and by §3.2.3, which says the decisive
 question is a bandwidth question that only measurement can answer.
 
-1. **Measure the baseline.** `python build.py alpha` gives the distribution across mixer
-   paths; border-colour markers around `a2_DMAsound` give wall-clock. Do this in both a
-   2 bpp and a 256-colour mode — the delta between them is the bandwidth sensitivity that
-   decides how much §3.2.3 is worth.
-2. **Settle the bandwidth question cheaply, before building anything.** A throwaway loop
-   that writes 208 bytes as strided `STRB`s versus 208/4 words as sequential `STR`s,
-   timed in both screen modes, costs an afternoon and either justifies Turbo or kills it.
-   It does not need the guard gap, the codegen, or any change to QTM.
-3. **Offline sample-prep pass** (§4): guard gap sized for one fill at maximum increment,
+1. ~~**Measure the baseline.**~~ **Done** — [`MEASUREMENTS.md`](MEASUREMENTS.md). Cycle-exact
+   range profiling under Arculator, not border markers, because the runtime-generated
+   mixers are spread over thousands of addresses that a "hottest instruction" view cannot
+   sum.
+2. ~~**Settle the bandwidth question cheaply.**~~ **Superseded by step 1.** The throwaway
+   `STRB`-vs-`STR` loop is unnecessary: the mode comparison already answers it on the real
+   mixer, with byte-identical work in both modes, which is stronger evidence than a
+   synthetic loop would have been.
+3. **Offline sample-prep pass** (§4) — now the largest known lever, not just an enabler:
+   guard gap sized for one fill at maximum increment,
    loop data pre-copied, silence for one-shots. Purely a data change — the unmodified
    module must still build byte-identical, which `build.py` verifies.
 4. **Remove the end-of-sample split** using the guard gap: `a2_chanctrl` collapses, the
@@ -332,5 +342,6 @@ question is a bandwidth question that only measurement can answer.
    to the persistent-scratch problem. Most of the theoretical win lives here.
 8. Keep §3.4 in view throughout: it may be larger than everything above, and costs no code.
 
-Steps 1–2 are the whole decision. Steps 3–4 are worth doing regardless of what 1–2 say,
-because they simplify the mixer and are independently measurable.
+Steps 1–2 were the decision, and they came out in Turbo's favour. Steps 3–4 are worth
+doing regardless, because they simplify the mixer, are independently measurable, and — on
+the step 1 numbers — carry more of the win than the inner-loop work does.

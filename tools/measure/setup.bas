@@ -1,0 +1,1 @@
+10 OSCLI"Dir HostFS::HostFS.$"20 SYS "QTM_Load","coolbeans",030 SYS "QTM_Start"40 SYS &47E63 TO J%,U%,W%50 B%=J%-&64D860 PRINT "BASE ";~B%;" WKSP ";~W%;" UNRL ";~U%70 FOR I%=0 TO 7:PRINT ~!(J%+I%*4);" ";:NEXT:PRINT80 END
