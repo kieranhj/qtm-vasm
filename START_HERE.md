@@ -30,7 +30,7 @@ official QTM release. Port + tooling.
 - Working tree clean; no stashes. turbo-measurement (pushed) is 11 commits ahead of main: the
   mixer measurements and the QTM Turbo / guard-gap builds (last: 2026-08-10 "Step 5: build QTM
   Turbo, and measure it as a regression").
-- PLAN.md names the source zip at `C:\Users\khcon\OneDrive\Archie\Steve\QTMv1-49b.zip` (not moved).
+- PLAN.md names the source zip at `C:\Users\khcon\OneDrive\Retro\Archie\Steve\QTMv1-49b.zip` (not moved).
 
 ## Status and next steps
 - Goal achieved: all four variants byte-identical; the release module plays under Arculator.
