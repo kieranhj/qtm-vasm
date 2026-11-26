@@ -3,7 +3,7 @@
 **Goal:** a vasm build of QTM v1.49b that is byte-identical to the released `QTMModule`
 (26 624 bytes, dated 19 Mar 2023) shipped in `QTMv1-49b.zip`.
 
-Source: `C:\Users\khcon\OneDrive\Retro\Archie\Steve\QTMv1-49b.zip` → `Source/` (10 tokenised BASIC
+Source: `C:\Users\khcon\OneDrive\Retro\Archie\Contributed\Steve\QTMv1-49b.zip` → `Source/` (10 tokenised BASIC
 files, ~9 130 detokenised lines).
 
 ---
