@@ -47,7 +47,7 @@ and `FNmcr` are defined but never called, so they contribute nothing.
 ## Steps
 
 1. Copy `ref/source-tokenised/` into the Arculator HostFS share, e.g. to
-   `Repos/arculator/hostfs/QTM/`, and copy `ListPtch` in beside it.
+   `D:\\tools\\archie\\Arculator\\hostfs\\Dev\\QTM\\qtm-vasm\\` (a copy is already there), and copy `ListPtch` in beside it.
    Keep the files binary-identical — they are tokenised BASIC, not text.
 
 2. Boot Arculator with a RISC OS 3.11 config (`configs/A3000 4mb.cfg` or
