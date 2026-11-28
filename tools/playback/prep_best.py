@@ -29,6 +29,7 @@ code subtract whose measured gain is closest to v/64.
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -41,14 +42,26 @@ PAL_CLOCK = 3546894.6           # Paula: sample rate = clock / period
 # ---------------------------------------------------------------------------- machine
 
 def load_machine(name):
+    """A machine profile. A profile without a "codesweep" uses the datasheet's DAC levels for
+    both halves; one without a "freqresp" has a flat response, so only QTM's hold droop is
+    corrected (the generic profile, for hardware we haven't measured)."""
     prof = json.loads((HERE / "machines" / f"{name}.json").read_text())
-    rec = json.loads((HERE.parent.parent / prof["codesweep"]).read_text())
-    P = np.array([l["pos"] for l in rec["levels"]])
-    N = np.array([l["neg"] for l in rec["levels"]])
-    resp = json.loads((HERE.parent.parent / prof["freqresp"]).read_text())["result"][0]["rows"]
-    f = np.array([r["f"] for r in resp])
-    db = np.array([r["analogue_db"] for r in resp])
-    db -= np.median(db[(f > 100) & (f < 500)])      # 0 dB in the flat region
+    root = HERE.parent.parent
+    if prof.get("codesweep"):
+        rec = json.loads((root / prof["codesweep"]).read_text())
+        P = np.array([l["pos"] for l in rec["levels"]])
+        N = np.array([l["neg"] for l in rec["levels"]])
+    else:
+        sys.path.insert(0, str(root / "tools" / "audio"))
+        import vidc
+        P = N = np.array(vidc.MAG, dtype=float)
+    if prof.get("freqresp"):
+        resp = json.loads((root / prof["freqresp"]).read_text())["result"][0]["rows"]
+        f = np.array([r["f"] for r in resp])
+        db = np.array([r["analogue_db"] for r in resp])
+        db -= np.median(db[(f > 100) & (f < 500)])  # 0 dB in the flat region
+    else:
+        f, db = np.array([10.0, 30000.0]), np.zeros(2)
     return dict(name=name, P=P, N=N, label=prof["label"], short=prof["short"],
                 resp_f=f, resp_db=db, cap_db=prof.get("cap_db", 12.0), fade_hz=prof.get("fade_hz"))
 
@@ -189,10 +202,12 @@ def filt(x, h, rep_off, rep_len):
 
 # ---------------------------------------------------------------------------- main
 
-def prepare(src, dst, machine, cap_db=12.0, gain_db=-3.0, report=False):
+def prepare(src, dst, machine, cap_db=None, gain_db=-3.0, report=False):
     d = bytearray(Path(src).read_bytes())
     mod = parse(d)
     m = load_machine(machine)
+    if cap_db is None:
+        cap_db = m["cap_db"]
     periods = played_periods(d, mod)
     work = []
     for s in mod["samples"]:
@@ -242,7 +257,7 @@ def main():
     ap.add_argument("src")
     ap.add_argument("dst")
     ap.add_argument("--machine", default="a3020")
-    ap.add_argument("--cap", type=float, default=12.0)
+    ap.add_argument("--cap", type=float, default=None, help="boost cap in dB (default: the profile's); 0 = no response correction")
     ap.add_argument("--gain", type=float, default=-3.0)
     ap.add_argument("--report", action="store_true")
     a = ap.parse_args()

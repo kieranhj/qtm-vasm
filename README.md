@@ -34,6 +34,9 @@ baselines to regress against. Its §7 summarises what an 8 MHz ARM2 was then mea
 actually do — including one idea that benchmarked at −25 % and cost +49 % in situ — and
 ranks what is worth taking forward.
 
+[`AUDIO.md`](AUDIO.md) covers audio quality: what limits MOD playback on a VIDC1 machine,
+what each fix is worth on three measured machines, and how to prepare music for a demo.
+
 ## Building
 
 ```
@@ -70,6 +73,8 @@ a rule-driven text transformation rather than a metaprogramming exercise.
 ```
 PLAN.md                   the plan — read this first
 OPTIMISATION.md           where the mixer headroom is, measured (§7 for the findings)
+AUDIO.md                  getting the best audio out of QTM on real machines: measured
+                          limits, fixes, and the procedure before a party
 ref/QTMModule             released v1.49b binary; the byte-identity target
 ref/source-tokenised/     original tokenised BASIC V sources, unaltered
 ref/source-text/          detokenised text of the same, for reading and diffing

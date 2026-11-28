@@ -1,0 +1,7 @@
+{
+  "label": "Any VIDC1 machine (datasheet levels, response not corrected)",
+  "short": "generic VIDC1",
+  "codesweep": null,
+  "freqresp": null,
+  "cap_db": 12.0
+}

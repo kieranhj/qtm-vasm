@@ -1,0 +1,7 @@
+{
+  "label": "A3020, filter bypassed, for a capture (response corrected in the edit)",
+  "short": "A3020 (capture)",
+  "codesweep": "recordings/codesweep-test1-mode12-a3020-no-filter-level-60.json",
+  "freqresp": null,
+  "cap_db": 12.0
+}
