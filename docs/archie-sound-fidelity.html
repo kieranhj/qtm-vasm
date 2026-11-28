@@ -81,7 +81,7 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; font-family:
 <section class="status" aria-label="Where this stands">
   <div><h3>Known</h3><p>The DAC curve, the time-division stereo and the sample-rate limits, all from the VIDC datasheet.</p></div>
   <div><h3>Modelled</h3><p>The cost of QTM's conversion table, its volume subtract, its sample stepping and the DAC images, all simulated from the datasheet.</p></div>
-  <div><h3>Measured</h3><p>Tests 1 to 5 on an A3020 with the filter bypassed, and tests 1 to 3 on an A3010 with the original filter. The biggest problem left after a bypass is a 3.2 kHz roll-off that the bypass does not remove.</p></div>
+  <div><h3>Measured</h3><p>Tests 1 to 5 on an A3020 with the filter bypassed, tests 1 to 3 on an A3010 with the original filter, and tests 1 and 2 on a second bypassed A3020. The biggest problem left after a bypass is a 3.2 kHz roll-off that the bypass does not remove.</p></div>
 </section>
 
 <p style="margin-top:1.2rem;font-size:0.9rem;color:var(--ink-2)">Tags: <span class="tag ds">datasheet</span> stated by Acorn · <span class="tag model">model</span> simulated, not yet measured · <span class="tag rec">needs recording</span> only the hardware can answer.</p>
@@ -344,6 +344,27 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; font-family:
 <h3>Noise with the filter in</h3>
 <p>−75.7 dB below a full-scale sine, at the recorder's own floor, with the line whine at −117 dB. The filter takes out what little high-frequency noise the bypassed machine had; the bypass costs about 3 dB of noise, which is still 35 dB below the DAC's conversion error.</p>
 
+<h2>A second A3020: how much boards vary</h2>
+<p>Tests 1 and 2 on a second A3020 with the filter bypassed ("A3020b"), at line-in level 60. Files: <code>recordings/*-a3020b-no-filter-level-60.*</code>.</p>
+<ul>
+  <li><strong>The integrator varies by about 7%.</strong> A3020b's fits as a first-order low-pass at 3.43 kHz (time constant 46.4 µs), against 3.20 kHz (49.7 µs) on the first A3020: component tolerance. Treble is −9.6 dB at 10 kHz, against −9.8 dB. A treble boost designed for 3.3 kHz suits both to within about 0.5 dB.</li>
+  <li><strong>The ± mismatch differs again.</strong> A3020b's halves match to within 0.03 dB through chords 1 to 4, but the negative half is 0.17 to 0.38 dB low in chords 5 to 7. That is a level-dependent compression of the negative half, not the first A3020's even 0.54 dB, and the A3010 has almost none. Each board has its own.</li>
+  <li><strong>The VIDC design errors repeat on a third chip.</strong> Chords 1 to 3 have steps 9–19% too large, chord 4's are 13% small, and the level falls back at codes 48 and 64 (−0.23 and −0.82 <i>i</i>). At code 112 it falls by 1.5 <i>i</i>: between the first A3020 (+3.9, as the datasheet expects) and the A3010 (−5.1). That step is where chips differ most.</li>
+</ul>
+<p>SINAD averaged over 0, −6, −12 and −18 dBFS, with the table tested on each machine's measured DAC. "Typical VIDC" is a table built from the average of the other two machines' curves, so no machine is scored on a table made from its own data.</p>
+<div class="scroll"><table>
+  <thead><tr><th>Table</th><th class="n">A3020</th><th class="n">A3020b</th><th class="n">A3010</th></tr></thead>
+  <tbody>
+  <tr><td>OS (QTM today)</td><td class="n">31.1</td><td class="n">30.1</td><td class="n">28.8</td></tr>
+  <tr><td>Datasheet-nearest</td><td class="n">33.0</td><td class="n">32.1</td><td class="n">31.1</td></tr>
+  <tr><td>Typical VIDC (other two machines)</td><td class="n">31.4</td><td class="n">33.6</td><td class="n">32.2</td></tr>
+  <tr><td>The machine's own</td><td class="n"><strong>33.9</strong></td><td class="n"><strong>34.4</strong></td><td class="n"><strong>33.0</strong></td></tr>
+  </tbody>
+</table></div>
+<div class="callout">
+  <p><strong>What this means.</strong> The datasheet-nearest table gains 1.9 to 2.3 dB over QTM today on every machine. It is the safe default. A "typical VIDC" table helps two machines and hurts the third, so three chips aren't enough to build one; more machines might change that. A machine's own measured table is always best: 2.8 to 4.3 dB over QTM today.</p>
+</div>
+
 <h2>Back to the A3020: noise</h2>
 <h3>Noise is not a problem</h3>
 <p>Silence measures −73 dB below a full-scale sine, and the recorder on its own (the Arc switched off) −76.6 dB. That puts the Arc's own noise at about −76 dB, mostly a little hum below 2 kHz: 100 Hz at −87 dB. The 15.625 kHz line whine is at −98 dB, inaudible. +0 and −0 are the same, and MODEs 12 and 13 are the same. That is 35 to 40 dB below the DAC's own conversion error, so noise needs no work. With sound DMA switched off it is slightly louder, −71 dB, with tones at 274 and 374 Hz; QTM never runs like that.</p>
@@ -372,7 +393,7 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; font-family:
 <h2>Candidate improvements</h2>
 <p>Ranked by expected gain against effort. All but the last cost nothing at runtime.</p>
 <ol class="rank">
-  <li><strong>Undo the 3.2 kHz roll-off.</strong> Measured: treble is 10 dB down at 10 kHz with the filter bypassed. A first-order treble boost undoes it exactly. This can be done after the Arc, on the board with a smaller integrator capacitor, or in the samples during the prep pass, aimed at the pitch each sample is mostly played at. <span class="tag ds">measured</span></li>
+  <li><strong>Undo the 3.2 kHz roll-off.</strong> Measured on two bypassed A3020s: a first-order roll-off at 3.20 and 3.43 kHz, 10 dB down at 10 kHz. A first-order treble boost undoes it exactly. This can be done after the Arc, on the board with a smaller integrator capacitor, or in the samples during the prep pass, aimed at the pitch each sample is mostly played at. <span class="tag ds">measured</span></li>
   <li><strong>Run at 24 µs or faster on a bypassed machine.</strong> Without the filter, 48 µs puts images as loud as the tones into the audible band. This doubles the mixer's load at 4 channels on an ARM2. <span class="tag model">model</span></li>
   <li><strong>Store samples at 2× their rate, band-limited, in the offline prep pass.</strong> About 6 dB less resampling distortion at any sample period, for twice the memory. <code>tools/prep</code> and the <code>gg</code> variant already do offline sample preparation. <span class="tag model">model</span></li>
   <li><strong>Replace QTM's conversion table.</strong> By default with the datasheet-nearest table, which beats the OS table on both machines at every level: about 2 dB more SINAD at full scale and up to 3.6 dB at −12 dBFS. Optionally with a table measured on the user's own machine, which gains up to 7 dB at −6 dBFS and cuts THD by up to 16 dB, but only on that machine. <span class="tag ds">measured</span></li>
