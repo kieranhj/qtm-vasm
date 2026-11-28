@@ -76,6 +76,7 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; font-family:
   <div><div class="num">3.2–3.4 kHz</div><p>After the bypass a first-order roll-off remains, still 10 dB down at 10 kHz. It is built into the first stage of the audio circuit.</p></div>
   <div><div class="num">+2 dB</div><p>A better linear-to-log table gains about 2 dB on every machine tested. A table measured on your own machine gains 3 to 4 dB.</p></div>
   <div><div class="num">−76 dB</div><p>Noise is not a problem, with or without the filter. Video line whine is at −98 dB or lower.</p></div>
+  <div><div class="num">+3 / +8 dB</div><p>On real music, prepared samples and measured tables restore about 3 dB of treble on a bypassed A3020, and up to 8 dB at the filter's edge on a filtered A3010.</p></div>
 </section>
 
 <h2>How the sound gets out</h2>
@@ -161,6 +162,45 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; font-family:
   <li><strong>Loud channels affect the others.</strong> In 4-channel mode with three slots held at full scale, the fourth slot's level shifts by about +0.5 dB on positive values and up to −1.8 dB on negative ones. That means intermodulation between channels. It shrinks at faster rates, to −0.4 dB at 12 µs.</li>
 </ul>
 
+<h2>On real music: what the fixes achieve</h2>
+<p>To hear the findings together, two players were built for each measured machine, with QTM 1.49b and four of Rhino's MODs (Push, STNICCC, Space Trip and Mikroreise):</p>
+<ul>
+  <li><strong>As shipped:</strong> the original MODs and QTM's own tables, at its default 32 µs.</li>
+  <li><strong>Best:</strong> 24 µs; QTM's load-time linear-to-log table replaced with an identity table and its volume table rebuilt from the machine's measured DAC; and every sample prepared offline. Each sample is filtered to undo the machine's measured frequency response and the treble lost to QTM's nearest-sample stepping, aimed at the note it is mostly played at, then converted straight to the code with the nearest measured level. The whole song is turned down 3 dB for headroom, and a sample already at full scale gets only as much of its treble boost as fits.</li>
+</ul>
+<p>STNICCC (6 channels) was recorded from both players on the bypassed A3020 and the filtered A3010, about 90 seconds each. The two recordings of each machine were aligned, level-matched between 200 Hz and 1 kHz, and their long-term spectra compared.</p>
+
+<div class="chart" id="c-play">
+  <h4>Best against as shipped, STNICCC</h4>
+  <p class="sub">Change in level by band, dB, after level-matching in the midrange. Above 10 kHz the A3010 is at the noise floor in both recordings, so it isn't shown there.</p>
+  <div class="legend"><span style="--c:var(--s1)">A3020, bypassed</span><span style="--c:var(--s2)">A3010, original filter</span></div>
+  <svg viewBox="0 0 640 260" role="img" aria-label="Both machines stay within half a decibel below 2 kHz. The A3020 gains about 3 dB from 3 to 13 kHz and loses 1.5 to 4.4 dB above 16 kHz. The A3010 gains 4.3 dB at 3 to 4 kHz and 7.8 dB at 4 to 6 kHz."></svg>
+</div>
+
+<div class="scroll"><table>
+  <thead><tr><th class="n">Band</th><th class="n">A3020, bypassed</th><th class="n">A3010, original filter</th></tr></thead>
+  <tbody>
+  <tr><td class="n">20 Hz – 2 kHz</td><td class="n">within ±0.5 dB</td><td class="n">within ±0.5 dB</td></tr>
+  <tr><td class="n">2–3 kHz</td><td class="n">+1.6 dB</td><td class="n">+0.8 dB</td></tr>
+  <tr><td class="n">3–4 kHz</td><td class="n">+2.7 dB</td><td class="n"><strong>+4.3 dB</strong></td></tr>
+  <tr><td class="n">4–6 kHz</td><td class="n">+3.0 dB</td><td class="n"><strong>+7.8 dB</strong></td></tr>
+  <tr><td class="n">6–8 kHz</td><td class="n">+3.2 dB</td><td class="n">+2.1 dB</td></tr>
+  <tr><td class="n">8–10 kHz</td><td class="n">+3.1 dB</td><td class="n">+0.1 dB</td></tr>
+  <tr><td class="n">10–13 kHz</td><td class="n">+3.6 dB</td><td class="n">noise floor</td></tr>
+  <tr><td class="n">13–16 kHz</td><td class="n">+2.5 dB</td><td class="n">noise floor</td></tr>
+  <tr><td class="n">16–20 kHz</td><td class="n">−1.5 dB</td><td class="n">noise floor</td></tr>
+  <tr><td class="n">20–24 kHz</td><td class="n">−4.4 dB</td><td class="n">noise floor</td></tr>
+  </tbody>
+</table></div>
+<ul>
+  <li><strong>The balance of the mix is kept.</strong> Below 2 kHz both machines change by less than half a decibel, so the rebuilt volume table and the offline conversion hold the levels the musician set.</li>
+  <li><strong>The bypassed A3020 gets a broad lift of about 3 dB from 3 to 13 kHz</strong>, as predicted for this song (+2.9 dB). It falls short of the full 10 dB lost at 10 kHz because STNICCC's hi-hats and ride were already at full scale and could take only 14–21% of their boost.</li>
+  <li><strong>At 24 µs the images go.</strong> On the A3020 the level above 16 kHz drops by 1.5 to 4.4 dB despite the boost: at 32 µs this 6-channel song runs at 31.25 kHz per channel, so content above about 7 kHz is mirrored back below 24 kHz.</li>
+  <li><strong>The filtered A3010 gets 4 to 8 dB right at the filter's edge.</strong> Its usable top end moves from about 2.8 kHz to 4.5–5 kHz. Above 6 kHz the original filter, −24 to −41 dB, is more than any boost can recover.</li>
+  <li>The best players are 3.6–3.7 dB quieter overall, the deliberate headroom. Turn them up to match before listening.</li>
+</ul>
+<p>What a recording of music can't separate is the distortion the measured tables remove, such as the corrected balance between the halves and cleaner quiet passages, because there is no clean reference to measure against. The tools are in <a href="https://github.com/kieranhj/qtm-vasm/tree/audio-measurements/tools/playback">tools/playback</a>: <code>build_apps.py --machine &lt;name&gt;</code> builds both players for a measured machine as a !Spark archive.</p>
+
 <h2>Help wanted: record your machine</h2>
 <p>Three machines are enough to separate VIDC from the board, but not to build a table that suits everyone, or to know whether other boards behave like the A30x0's hybrid. Recordings of these would help most:</p>
 <ul>
@@ -229,6 +269,31 @@ function hover(svg, box, m, W, H, xs, html, yAt) {
   txt(svg, sx(10013) - 6, sy(-9.7) - 8, "−10 dB", "end", "lbl");
   const F = DATA.fr.A3010;
   hover(svg, box, m, W, H, F.map(r => sx(r[0])), i => `${F[i][0].toFixed(0)} Hz<br>` + S.map(([k, , n]) => `${n}: ${DATA.fr[k][i][1].toFixed(1)} dB`).join("<br>"), i => sy(DATA.fr.A3020[i][1]));
+})();
+
+// playback comparison
+(function () {
+  const B = [[1000,2000,0.5,-0.2],[2000,3000,1.6,0.8],[3000,4000,2.7,4.3],[4000,6000,3.0,7.8],[6000,8000,3.2,2.1],[8000,10000,3.1,0.1],[10000,13000,3.6,null],[13000,16000,2.5,null],[16000,20000,-1.5,null],[20000,24000,-4.4,null]];
+  const box = document.getElementById("c-play"), svg = box.querySelector("svg"), W = 640, H = 260, m = {l: 50, r: 16, t: 10, b: 40};
+  const sy = v => H - m.b - (v + 6) / 15 * (H - m.t - m.b);
+  const gw = (W - m.l - m.r) / B.length, bw = gw / 2 - 5;
+  for (const v of [-6, -3, 0, 3, 6, 9]) { el("line", {x1: m.l, x2: W - m.r, y1: sy(v), y2: sy(v), class: v === 0 ? "axis" : "grid"}, svg); txt(svg, m.l - 6, sy(v) + 4, (v > 0 ? "+" : "") + v, "end"); }
+  const yl = txt(svg, 12, (m.t + H - m.b) / 2, "change (dB)"); yl.setAttribute("transform", `rotate(-90 12 ${(m.t + H - m.b) / 2})`);
+  const lab = v => v >= 1000 ? (v / 1000) + "k" : v;
+  const tip = tipper(box);
+  B.forEach(([lo, hi, a, b], i) => {
+    const x0 = m.l + i * gw + 3;
+    txt(svg, x0 + gw / 2 - 3, H - m.b + 16, lab(lo) + "–" + lab(hi));
+    [[a, "var(--s1)", 0, "A3020"], [b, "var(--s2)", 1, "A3010"]].forEach(([v, c, k, n]) => {
+      if (v === null) return;
+      const x = x0 + k * (bw + 2), y = sy(Math.max(v, 0)), h = Math.max(1, Math.abs(sy(v) - sy(0)));
+      const r = el("rect", {x, y, width: bw, height: h, rx: 2, fill: c}, svg);
+      const hit = el("rect", {x, y: m.t, width: bw, height: H - m.t - m.b, fill: "transparent"}, svg);
+      hit.addEventListener("pointermove", () => place(box, tip, svg, x + bw / 2, y, `${n}, ${lab(lo)}–${lab(hi)} Hz<br>${v > 0 ? "+" : ""}${v.toFixed(1)} dB`));
+      hit.addEventListener("pointerleave", () => { tip.hidden = true; });
+    });
+  });
+  txt(svg, m.l + 6 * gw + gw * 2, sy(6.5), "A3010 at the noise floor above 10 kHz", "middle", "lbl");
 })();
 
 // DAC error by code
