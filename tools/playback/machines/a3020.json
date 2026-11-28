@@ -1,0 +1,7 @@
+{
+  "label": "A3020, filter bypassed (first machine)",
+  "codesweep": "recordings/codesweep-test1-mode12-a3020-no-filter-level-60.json",
+  "freqresp": "recordings/freqresp-test2-mode12-a3020-no-filter-level-60.json",
+  "integrator_hz": 3200,
+  "short": "A3020 (filter bypassed)"
+}
