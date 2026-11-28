@@ -1,0 +1,251 @@
+<title>Archimedes Audio, Measured</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; a key-findings panel up top; charts and tables scroll inside their own boxes. */
+:root {
+  --bg: #f6f7f4; --surface: #ffffff; --ink: #1c211d; --ink-2: #5a635c; --rule: #dde2db;
+  --accent: #2f6b4f; --accent-soft: #e3efe7;
+  --s1: #257de0; --s2: #f47230; --s3: #00b894;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141815; --surface: #1c211d; --ink: #e8ece7; --ink-2: #9ba59d; --rule: #2e3530;
+  --accent: #7fc4a0; --accent-soft: #1f3328; --s1: #338ced; --s2: #e76624; --s3: #00a888; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #141815; --surface: #1c211d; --ink: #e8ece7; --ink-2: #9ba59d; --rule: #2e3530;
+  --accent: #7fc4a0; --accent-soft: #1f3328; --s1: #338ced; --s2: #e76624; --s3: #00a888; color-scheme: dark; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--f-body); }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 2.5rem 4rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: 2.6rem; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.6rem; font-weight: 600; margin-top: 3rem; padding-top: 1rem; border-top: 2px solid var(--ink); }
+h3 { font-size: 1.15rem; font-weight: 600; margin-top: 1.8rem; }
+p, li { max-width: 68ch; }
+p { margin: 0.7rem 0; }
+ul, ol { padding-left: 1.3rem; } li { margin: 0.35rem 0; }
+code { font-family: var(--f-mono); font-size: 0.88em; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font: 500 0.78rem var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.lede { font-size: 1.15rem; color: var(--ink-2); margin-top: 0.8rem; }
+.meta { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; margin-top: 1rem; font: 0.85rem var(--f-mono); color: var(--ink-2); }
+.keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin-top: 1.8rem; }
+.keys > div { background: var(--surface); padding: 1rem 1.1rem; min-width: 0; }
+.keys .num { font: 700 1.9rem/1.1 var(--f-display); color: var(--accent); font-variant-numeric: tabular-nums; }
+.keys p { margin: 0.3rem 0 0; font-size: 0.93rem; color: var(--ink-2); }
+.callout { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 0.8rem 1rem; margin: 1.2rem 0; max-width: 68ch; }
+.callout p { margin: 0.3rem 0; }
+.scroll { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; font-size: 0.9rem; width: 100%; min-width: 520px; background: var(--surface); }
+th, td { text-align: left; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font: 600 0.78rem var(--f-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); background: var(--bg); }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--f-mono); }
+.chart { background: var(--surface); border: 1px solid var(--rule); padding: 1rem 1rem 0.6rem; margin: 1.2rem 0; position: relative; }
+.chart h4 { margin: 0; font: 600 0.98rem var(--f-display); }
+.chart .sub { margin: 0.1rem 0 0.6rem; font-size: 0.85rem; color: var(--ink-2); }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart svg text { font: 11px var(--f-mono); fill: var(--ink-2); }
+.chart svg .lbl { font-weight: 500; fill: var(--ink); }
+.chart .grid { stroke: var(--rule); stroke-width: 1; }
+.chart .axis { stroke: var(--ink-2); stroke-width: 1; }
+.legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; font-size: 0.82rem; color: var(--ink-2); margin-bottom: 0.4rem; }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 3px; border-radius: 2px; background: var(--c); vertical-align: middle; margin-right: 0.4rem; }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font: 0.78rem/1.45 var(--f-mono); padding: 0.4rem 0.55rem; border-radius: 4px; white-space: nowrap; z-index: 2; }
+.steps { counter-reset: s; list-style: none; padding: 0; }
+.steps > li { counter-increment: s; position: relative; padding: 0.6rem 0 0.6rem 2.4rem; border-bottom: 1px solid var(--rule); max-width: none; }
+.steps > li::before { content: counter(s); position: absolute; left: 0; top: 0.5rem; font: 700 1.3rem var(--f-display); color: var(--accent); }
+.foot { margin-top: 3rem; font-size: 0.85rem; color: var(--ink-2); }
+@media (max-width: 480px) { h1 { font-size: 2rem; } h2 { font-size: 1.35rem; } }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Acorn Archimedes · VIDC1 · A3010 / A3020</div>
+  <h1>Archimedes Audio, Measured</h1>
+  <p class="lede">What the motherboard audio filter really does, what the stardot filter bypass gains and what it leaves behind, and how VIDC's 8-bit log DAC behaves on real machines. From recordings of three machines, made with test programs that write raw DAC codes.</p>
+  <div class="meta"><span>November 2026</span><span>3 machines</span><span>5 test programs</span><span>recorded at 48 kHz / 16-bit</span></div>
+</header>
+
+<section class="keys" aria-label="Key findings">
+  <div><div class="num">2.8 kHz</div><p>The original filter is a fourth-order low-pass with −3 dB at 2.8 kHz. At 10 kHz it is 41 dB down.</p></div>
+  <div><div class="num">3.2–3.4 kHz</div><p>After the bypass a first-order roll-off remains, still 10 dB down at 10 kHz. It is built into the first stage of the audio circuit.</p></div>
+  <div><div class="num">+2 dB</div><p>A better linear-to-log table gains about 2 dB on every machine tested. A table measured on your own machine gains 3 to 4 dB.</p></div>
+  <div><div class="num">−76 dB</div><p>Noise is not a problem, with or without the filter. Video line whine is at −98 dB or lower.</p></div>
+</section>
+
+<h2>How the sound gets out</h2>
+<p>VIDC has up to 8 channel slots and one DAC. A player such as QTM writes each channel into the sound DMA buffer, interleaved, and VIDC plays the bytes one after another, each slot with its own stereo position. The channels are summed afterwards, in the analogue circuit. Each byte is a sign bit and 7 bits of magnitude on an exponential curve: 8 "chords" of 16 steps, each chord's step twice the last, roughly µ-law. Its range is about 72 dB, but at loud levels its steps are about 2 bits coarser than an 8-bit linear sample. (VIDC Datasheet, Acorn 1986, §6.10.)</p>
+<p>On the A3010, A3020 and A4000 the audio is a thick-film module, the <strong>0194007 Audio Hybrid</strong> (drawing 0194,500 sheet 2). The drawing shows its topology but not its values. Each channel has two stages:</p>
+<ol>
+  <li><strong>A subtractor that also integrates.</strong> An LM324 stage subtracts VIDC's "+" and "−" pin currents. Its feedback is a resistor and capacitor in parallel, making it a first-order low-pass. This is the integrator the datasheet calls for, whose time constant "must be long enough to integrate over a complete sample cycle".</li>
+  <li><strong>The filter and driver.</strong> A third-order Sallen-Key low-pass on one LM324 stage, buffered by a BC239 emitter follower, then out through 100 µF (C60/C68) and 3.3 Ω to the headphone socket.</li>
+</ol>
+<p>The bypass from the stardot thread <a href="https://stardot.org.uk/forums/viewtopic.php?f=16&amp;t=13630">"Simple DIY method to get unfiltered high quality sound on your Archimedes!"</a> wires the outputs of stage 1 (LM324 pins 7 and 8) to C60 and C68. That removes stage 2 and keeps stage 1.</p>
+
+<h2>The original filter</h2>
+<p>Measured on an A3010 with the filter in place: flat to 2 kHz, rising 0.2 dB at 1.6 kHz, then falling at 24 dB per octave. It is −5 dB at 3.2 kHz, −18.5 dB at 5 kHz, <strong>−41 dB at 10 kHz</strong> and −64 dB at 20 kHz. The hybrid's third-order filter fits as a real pole at 4.25 kHz and a resonant pair at 2.70 kHz with Q 1.24. With the integrator in front of it, the whole is close to a fourth-order Butterworth low-pass with −3 dB at about 2.84 kHz. The filter's resonance cancels the integrator's early droop, which is why the passband is flat.</p>
+
+<div class="chart" id="c-resp">
+  <h4>Frequency response, original filter against the bypass</h4>
+  <p class="sub">Analogue response relative to 1 kHz, sample period 24 µs. The DAC's own pulse shape is taken out.</p>
+  <div class="legend"><span style="--c:var(--s2)">A3010, original filter</span><span style="--c:var(--s1)">A3020, bypassed</span><span style="--c:var(--s3)">second A3020, bypassed</span></div>
+  <svg viewBox="0 0 640 300" role="img" aria-label="All three flat to 2 kHz. The two bypassed A3020s fall gently to about minus 16 dB at 20 kHz and lie almost on top of each other. The filtered A3010 falls steeply to minus 41 dB at 10 kHz and minus 64 dB at 20 kHz."></svg>
+</div>
+
+<div class="scroll"><table>
+  <thead><tr><th class="n">Frequency</th><th class="n">Original filter</th><th class="n">Bypassed (two A3020s)</th><th class="n">Change with the bypass</th></tr></thead>
+  <tbody>
+  <tr><td class="n">2 kHz</td><td class="n">+0.1 dB</td><td class="n">−1.0 / −0.8 dB</td><td class="n">−0.9 dB</td></tr>
+  <tr><td class="n">3.2 kHz</td><td class="n">−5.1 dB</td><td class="n">−2.6 / −2.3 dB</td><td class="n">+2.6 dB</td></tr>
+  <tr><td class="n">5 kHz</td><td class="n">−18.5 dB</td><td class="n">−4.9 / −4.6 dB</td><td class="n">+13.7 dB</td></tr>
+  <tr><td class="n">10 kHz</td><td class="n">−40.9 dB</td><td class="n">−9.8 / −9.5 dB</td><td class="n">+31 dB</td></tr>
+  <tr><td class="n">20 kHz</td><td class="n">−64.5 dB</td><td class="n">−15.8 / −15.4 dB</td><td class="n">+49 dB</td></tr>
+  </tbody>
+</table></div>
+<p>"Chops all frequencies above 10kHz" understates it: the original filter is already 5 dB down at 3.2 kHz. Arculator's "Original" filter setting, a second-order low-pass at 2.2 kHz, has about the right corner but half the real slope.</p>
+
+<h2>What the bypass leaves</h2>
+<p>On both bypassed A3020s the response is one clean first-order low-pass: 3.20 kHz on one (time constant 49.7 µs) and 3.43 kHz on the other (46.4 µs), each fitting to within 0.1 dB rms. That is stage 1's integrator, and the 7% difference is component tolerance. The time constant matches RISC OS's default sample period of 48 µs, which is presumably what it was sized for. It is the same at 24 µs and 48 µs, so a faster sample rate does not change it. The bass is unaffected: the output capacitors only start to cut in at about 4 Hz.</p>
+<div class="callout">
+  <p><strong>So a bypassed machine is still 10 dB down at 10 kHz.</strong> Because it is a plain first-order roll-off, it can be undone exactly. Three ways to do it:</p>
+  <ul>
+    <li><strong>In whatever the Arc plays into:</strong> a first-order treble boost from about 3.3 kHz, about +10 dB at 10 kHz. Designed for 3.3 kHz it suits both boards measured to within about 0.5 dB.</li>
+    <li><strong>On the board:</strong> a smaller integrator capacitor. The values are inside the hybrid, so this needs someone willing to work out where. It only makes sense with a sample period of 24 µs or less, because the integrator also smooths the slot switching.</li>
+    <li><strong>In software:</strong> a treble boost applied to the samples when they are prepared, aimed at the pitch each one is mostly played at. This suits the log DAC, whose error is a fixed fraction of the level, so turning samples down to make room costs little.</li>
+  </ul>
+  <p>With the bypass, the headphone socket is driven by an LM324 through 3.3 Ω. That is fine at line level, but low-impedance headphones may distort.</p>
+</div>
+
+<h3>Run faster than 48 µs once the filter is bypassed</h3>
+<p>Without the filter, the DAC's images, the mirror of each tone at the sample rate minus its frequency, are only partly cut by the integrator. At 48 µs (20.8 kHz) an 8 kHz tone has an image at 12.8 kHz, in the audible band. At 24 µs (41.7 kHz) the images start above 33 kHz. A recording with the slots at different levels also showed the slot pattern itself as a steady 20.8 kHz tone at 48 µs. Short slots are not a problem: in 4-channel mode, levels hold within 0.3 dB from 48 µs down to 12 µs per frame (3 µs slots).</p>
+
+<h2>The DAC on real chips</h2>
+<p>Test 1 plays every magnitude code as a 100 Hz square against zero, positive and negative separately, and measures its level. Across three chips (two A3020s and an A3010):</p>
+<ul>
+  <li><strong>Shared by all three, so part of VIDC's design:</strong> chords 1 to 3 have steps 9–20% too large and chord 4's are 4–13% small, so the level falls back at codes 48 and 64 (by 0.2 to 0.8 <i>i</i>, where the datasheet expects a rise of 0.25 and 0.5 <i>i</i>). The DAC is not monotonic there. Codes 32 to 64 are about −38 to −24 dB below full scale: the quiet ends of notes and fades.</li>
+  <li><strong>Different on each chip:</strong> where the top chord starts, at code 112, one A3020 rises 3.9 <i>i</i> as the datasheet expects, the other falls 1.5 <i>i</i> and the A3010 falls 5.1 <i>i</i>. Within a chord the errors grow at the binary bits of the step number, so the step currents are binary-weighted with mismatched weights.</li>
+  <li><strong>Different on each board:</strong> the balance between the positive and negative halves. One A3020's negative half is an even 0.54 dB quiet, the other's is 0.2–0.4 dB quiet only at loud levels, and the A3010's is within 0.08 dB. That points at the hybrid's subtractor resistors rather than VIDC.</li>
+  <li>The board routes the bits as RISC OS expects, with the sign in bit 0. The datasheet draws VIDC1 with it in D7.</li>
+  <li>On an A3020 in a VGA mode (MODE 27) the sound ran 4.9% fast: VIDC is then clocked at 25.175 MHz and RISC OS assumes 24 MHz. In MODE 12 the rate was exact.</li>
+</ul>
+
+<div class="chart" id="c-dac">
+  <h4>DAC error by code, three chips</h4>
+  <p class="sub">Measured level minus the datasheet level, in steps of the code's own chord, average of the two halves.</p>
+  <div class="legend"><span style="--c:var(--s1)">A3020</span><span style="--c:var(--s3)">second A3020</span><span style="--c:var(--s2)">A3010</span></div>
+  <svg viewBox="0 0 640 260" role="img" aria-label="All three chips rise above the datasheet through chords 1 to 3 and fall back at codes 48 and 64. They differ most at code 112, where the A3010 falls sharply."></svg>
+</div>
+
+<h3>What a better conversion table is worth</h3>
+<p>Players convert 8-bit linear samples to VIDC's log codes with a table; QTM builds its table with RISC OS's <code>Sound_SoundLog</code>, which always rounds up to the next level. Here are the tables played through each machine's measured DAC, as average SINAD (signal against all distortion) over sines at 0, −6, −12 and −18 dBFS:</p>
+<div class="scroll"><table>
+  <thead><tr><th>Table</th><th class="n">A3020</th><th class="n">Second A3020</th><th class="n">A3010</th></tr></thead>
+  <tbody>
+  <tr><td>RISC OS (<code>Sound_SoundLog</code>)</td><td class="n">31.1 dB</td><td class="n">30.1 dB</td><td class="n">28.8 dB</td></tr>
+  <tr><td>Nearest level on the datasheet curve</td><td class="n">33.0 dB</td><td class="n">32.1 dB</td><td class="n">31.1 dB</td></tr>
+  <tr><td>Built from the other two machines</td><td class="n">31.4 dB</td><td class="n">33.6 dB</td><td class="n">32.2 dB</td></tr>
+  <tr><td>Measured on the machine itself</td><td class="n"><strong>33.9 dB</strong></td><td class="n"><strong>34.4 dB</strong></td><td class="n"><strong>33.0 dB</strong></td></tr>
+  </tbody>
+</table></div>
+<p>The datasheet-nearest table is the safe default: 1.9–2.3 dB better than RISC OS's on every machine. A machine's own measured table is best, 2.8–4.3 dB better, and at −6 dBFS it cuts harmonic distortion from about −33 to −48 dB, but only on that machine. A table built from other machines helped two and hurt one, so a "typical VIDC" table needs more machines. Below about −24 dBFS the 8-bit samples are the limit, not the table.</p>
+
+<h2>Noise, stereo and the rest</h2>
+<ul>
+  <li><strong>Noise</strong> is about −76 dB below a full-scale sine on the bypassed A3020, and at the recorder's floor (−75.7 dB) on the filtered A3010. Mains hum at 100 Hz is −87 dB. The 15.625 kHz line whine is −98 dB bypassed and −117 dB filtered. MODEs 12 and 13 measure the same. That is 35–40 dB below the DAC's own conversion error.</li>
+  <li><strong>Stereo</strong> positions measure as the datasheet says (left shares of 0.50, 0.665 and 0.339 for centre and the two-thirds positions), with 36.7 dB separation at the hard positions.</li>
+  <li><strong>Loud channels affect the others.</strong> In 4-channel mode with three slots held at full scale, the fourth slot's level shifts by about +0.5 dB on positive values and up to −1.8 dB on negative ones. That means intermodulation between channels. It shrinks at faster rates, to −0.4 dB at 12 µs.</li>
+</ul>
+
+<h2>Help wanted: record your machine</h2>
+<p>Three machines are enough to separate VIDC from the board, but not to build a table that suits everyone, or to know whether other boards behave like the A30x0's hybrid. Recordings of these would help most:</p>
+<ul>
+  <li><strong>Any Archimedes with its filter still fitted</strong>, especially the A3000, A310/A305/A440, A410/1-A440/1, A5000 and A540, whose filters are built differently from the A30x0 hybrid.</li>
+  <li><strong>Any machine with the filter bypassed</strong>, by any of the stardot methods, to compare what each leaves.</li>
+  <li><strong>More A3010, A3020 and A4000 machines</strong>, to see how much the DAC and the integrator vary.</li>
+</ul>
+<p>You need RISC OS 3.1, a line input that records 44.1 or 48 kHz at 16 bits or better (a cheap USB interface is fine), and about ten minutes.</p>
+<ol class="steps">
+  <li>Get the test programs from <a href="https://github.com/kieranhj/qtm-vasm/tree/audio-measurements/tools/audio/arc/bin">tools/audio/arc/bin on GitHub</a> and copy them to the Arc as Absolute files (type &amp;FF8): <code>codesweep</code>, <code>freqresp</code> and <code>noise</code>. The full instructions are in <a href="https://github.com/kieranhj/qtm-vasm/blob/audio-measurements/tools/audio/README.md">tools/audio/README.md</a>.</li>
+  <li>Connect the Arc's headphone or line output to the line input. Switch to MODE 12 and press F12 for the command line.</li>
+  <li>Run <code>codesweep</code> and watch the recorder's meter on the loud 1 kHz tone at the start. Set the input level to peak around −6 dBFS, then press Escape.</li>
+  <li>Record each program in turn, one file each: start recording, run it, stop after it says "Done". <code>codesweep</code> takes 2¼ minutes, <code>freqresp</code> about 50 s and <code>noise</code> about 1 minute. <code>noise</code> changes screen mode by itself and restores yours; note any modes it says it skipped.</li>
+  <li>Record about 10 seconds with the Arc switched off and the lead still connected. That gives the recorder's own noise floor.</li>
+  <li>Name the files like <code>codesweep-a3000-filter.wav</code>, and note the machine, board issue if known, RISC OS version, whether the filter is fitted or how it was bypassed, the recorder and its input level. Then post them in the <a href="https://stardot.org.uk/forums/viewtopic.php?f=16&amp;t=13630">stardot thread</a> or open an <a href="https://github.com/kieranhj/qtm-vasm/issues">issue on GitHub</a> with a link to the files.</li>
+</ol>
+<p>The programs take over the sound system the way a tracker does and put it back when they finish or when you press Escape. They have been tested on RISC OS 3.1 (A3010 and A3020); on RISC OS 3.5 and later they are untested.</p>
+
+<div class="foot">
+  <p>Method. Each program installs its own sound channel handler and plays raw bytes, so the hardware is measured without a player in the way. Each run starts and ends with a full-scale marker; the analysers find the markers, measure the machine's real sample rate from their pitch, and read each tone's level with a flat-top window or a lock-in over whole cycles. All the programs, analysers, recordings and results are in the <a href="https://github.com/kieranhj/qtm-vasm/tree/audio-measurements/tools/audio">qtm-vasm repository</a> (<code>tools/audio/</code> and <code>recordings/</code>). The circuit description is from the A3010/A3020/A4000 drawings (Heron 'E' main PCB, 0194,500 sheet 2); the DAC format is from the VIDC Datasheet, §6.10.</p>
+</div>
+</div>
+
+<script>
+const DATA = {"err":{"A3020":[0.42,0.12,-0.19,0.01,0.01,-0.16,0.21,-0.21,0.5,0.33,0.28,0.54,0.27,0.52,0.45,0.32,0.41,0.25,0.52,0.47,0.58,0.73,0.69,0.84,1.3,1.21,1.5,1.35,1.62,1.65,1.65,1.84,0.49,0.66,0.89,0.94,1.31,1.35,1.6,1.74,2.18,2.39,2.54,2.66,3.0,3.03,3.31,3.41,0.41,0.51,0.6,0.69,0.89,0.92,1.1,1.12,1.51,1.56,1.67,1.78,1.92,2.0,2.14,2.17,0.25,0.15,0.12,0.05,0.05,-0.01,-0.06,-0.14,-0.01,-0.11,-0.12,-0.23,-0.19,-0.28,-0.32,-0.39,0.2,0.18,0.19,0.16,0.24,0.2,0.21,0.19,0.3,0.29,0.29,0.28,0.34,0.31,0.32,0.28,0.18,0.16,0.15,0.13,0.17,0.15,0.14,0.11,0.17,0.14,0.14,0.1,0.14,0.12,0.1,0.07,0.03,0.01,0.01,-0.01,0.03,0.0,-0.0,-0.03,-0.02,-0.05,-0.07,-0.09,-0.08,-0.11,-0.13,-0.17],"A3020b":[0.16,-0.05,0.17,0.13,0.72,0.67,0.92,0.89,1.17,1.18,1.4,1.41,1.95,1.92,2.16,2.12,0.45,0.4,0.55,0.49,0.89,0.83,1.01,0.95,1.2,1.15,1.3,1.26,1.66,1.61,1.77,1.7,0.23,0.25,0.48,0.52,0.94,0.97,1.18,1.21,1.54,1.56,1.79,1.8,2.24,2.27,2.49,2.52,0.29,0.37,0.6,0.68,1.08,1.15,1.39,1.47,1.8,1.89,2.12,2.2,2.6,2.67,2.91,2.98,0.17,-0.02,-0.12,-0.32,-0.31,-0.51,-0.61,-0.81,-0.82,-1.02,-1.11,-1.31,-1.31,-1.51,-1.59,-1.79,0.03,-0.05,-0.04,-0.11,-0.01,-0.09,-0.07,-0.15,-0.03,-0.11,-0.09,-0.17,-0.07,-0.13,-0.11,-0.18,0.04,0.06,0.15,0.17,0.33,0.34,0.44,0.45,0.67,0.68,0.76,0.77,0.92,0.92,1.0,1.0,-0.19,-0.22,-0.18,-0.22,-0.14,-0.18,-0.16,-0.2,-0.06,-0.1,-0.09,-0.14,-0.08,-0.13,-0.13,-0.18],"A3010":[0.07,0.0,-0.05,0.06,0.28,0.39,0.35,0.34,1.04,0.99,1.02,1.07,1.33,1.42,1.36,1.34,-0.09,-0.02,0.06,0.17,0.52,0.68,0.73,0.82,1.53,1.59,1.71,1.79,2.16,2.29,2.31,2.45,-0.05,0.03,0.11,0.16,0.49,0.56,0.62,0.7,1.29,1.37,1.43,1.49,1.83,1.88,1.95,2.02,-0.17,-0.11,-0.07,-0.03,0.22,0.25,0.31,0.35,0.87,0.92,0.96,1.01,1.25,1.29,1.34,1.37,-0.35,-0.49,-0.63,-0.77,-0.77,-0.91,-1.05,-1.2,-0.97,-1.12,-1.25,-1.4,-1.4,-1.55,-1.69,-1.84,-0.09,-0.13,-0.14,-0.18,-0.08,-0.11,-0.13,-0.17,0.17,0.13,0.11,0.06,0.16,0.12,0.1,0.06,-0.1,-0.03,0.08,0.14,0.34,0.41,0.5,0.58,1.02,1.09,1.19,1.25,1.45,1.51,1.61,1.67,-0.3,-0.29,-0.26,-0.25,-0.15,-0.15,-0.12,-0.12,0.18,0.17,0.16,0.11,0.09,-0.19,-0.76,-1.5]},"fr":{"A3020":[[20.0,0.21],[25.2,0.27],[31.7,0.31],[39.9,0.33],[50.3,0.34],[63.2,0.35],[79.7,0.35],[100.2,0.36],[126.3,0.36],[159.0,0.35],[199.8,0.34],[251.8,0.33],[316.9,0.32],[399.4,0.29],[502.0,0.26],[631.3,0.21],[795.2,0.13],[1002.3,0.0],[1262.6,-0.2],[1590.3,-0.5],[1998.8,-0.96],[2515.7,-1.65],[3168.6,-2.58],[3991.1,-3.68],[5026.0,-4.93],[6323.0,-6.42],[7975.3,-8.18],[10013.0,-9.84],[12597.0,-11.8],[15888.5,-13.85],[20019.6,-15.79]],"A3020b":[[20.0,0.12],[25.2,0.15],[31.7,0.18],[39.9,0.19],[50.3,0.19],[63.2,0.2],[79.7,0.2],[100.2,0.2],[126.3,0.2],[159.0,0.2],[199.8,0.2],[251.8,0.19],[316.9,0.19],[399.4,0.18],[502.0,0.16],[631.3,0.14],[795.1,0.09],[1002.3,0.0],[1262.6,-0.15],[1590.3,-0.38],[1998.7,-0.76],[2515.7,-1.36],[3168.5,-2.26],[3991.0,-3.36],[5025.8,-4.6],[6322.8,-6.06],[7975.1,-7.78],[10012.7,-9.52],[12596.6,-11.38],[15888.1,-13.36],[20019.1,-15.39]],"A3010":[[20.0,-0.19],[25.2,-0.15],[31.7,-0.13],[39.9,-0.12],[50.3,-0.11],[63.2,-0.11],[79.7,-0.11],[100.2,-0.11],[126.3,-0.11],[159.0,-0.12],[199.8,-0.12],[251.8,-0.13],[316.9,-0.13],[399.4,-0.12],[502.0,-0.12],[631.3,-0.09],[795.2,-0.06],[1002.3,0.0],[1262.6,0.08],[1590.3,0.18],[1998.8,0.08],[2515.7,-1.13],[3168.5,-5.13],[3991.0,-11.45],[5025.9,-18.49],[6322.9,-25.79],[7975.2,-33.41],[10012.8,-40.87],[12596.8,-48.62],[15888.3,-56.42],[20019.3,-64.46]]}};
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function txt(parent, x, y, s, anchor, cls) { const t = el("text", {x, y, "text-anchor": anchor || "middle"}, parent); if (cls) t.setAttribute("class", cls); t.textContent = s; return t; }
+function tipper(box) { const t = document.createElement("div"); t.className = "tip"; t.hidden = true; box.appendChild(t); return t; }
+function place(box, tip, svg, x, y, html) {
+  const r = svg.getBoundingClientRect(), br = box.getBoundingClientRect(), k = r.width / svg.viewBox.baseVal.width;
+  tip.innerHTML = html; tip.hidden = false;
+  let left = r.left - br.left + x * k + 12; const w = tip.offsetWidth;
+  if (left + w > br.width - 4) left = r.left - br.left + x * k - w - 12;
+  tip.style.left = Math.max(4, left) + "px"; tip.style.top = (r.top - br.top + y * k - 10) + "px";
+}
+function hover(svg, box, m, W, H, xs, html, yAt) {
+  const tip = tipper(box), cross = el("line", {class: "axis", y1: m.t, y2: H - m.b, "stroke-dasharray": "3 3", visibility: "hidden"}, svg);
+  const hit = el("rect", {x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent"}, svg);
+  hit.addEventListener("pointermove", e => {
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+    let i = 0; xs.forEach((x, k) => { if (Math.abs(x - p.x) < Math.abs(xs[i] - p.x)) i = k; });
+    cross.setAttribute("x1", xs[i]); cross.setAttribute("x2", xs[i]); cross.setAttribute("visibility", "visible");
+    place(box, tip, svg, xs[i], yAt(i), html(i));
+  });
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+}
+
+// frequency response
+(function () {
+  const S = [["A3010", "var(--s2)", "original filter"], ["A3020", "var(--s1)", "A3020 bypassed"], ["A3020b", "var(--s3)", "second A3020"]];
+  const box = document.getElementById("c-resp"), svg = box.querySelector("svg"), W = 640, H = 300, m = {l: 50, r: 16, t: 10, b: 40};
+  const L0 = Math.log10(20), L1 = Math.log10(20000);
+  const sx = f => m.l + (Math.log10(f) - L0) / (L1 - L0) * (W - m.l - m.r);
+  const sy = v => H - m.b - (v + 70) / 75 * (H - m.t - m.b);
+  for (const v of [-70, -60, -50, -40, -30, -20, -10, 0]) { el("line", {x1: m.l, x2: W - m.r, y1: sy(v), y2: sy(v), class: v === 0 ? "axis" : "grid"}, svg); txt(svg, m.l - 6, sy(v) + 4, v, "end"); }
+  for (const [f, s] of [[20, "20"], [100, "100"], [1000, "1k"], [2840, "2.8k"], [10000, "10k"], [20000, "20k"]]) { el("line", {x1: sx(f), x2: sx(f), y1: m.t, y2: H - m.b, class: "grid"}, svg); txt(svg, sx(f), H - m.b + 16, s); }
+  txt(svg, (m.l + W - m.r) / 2, H - 4, "frequency (Hz)");
+  const yl = txt(svg, 12, (m.t + H - m.b) / 2, "dB re 1 kHz"); yl.setAttribute("transform", `rotate(-90 12 ${(m.t + H - m.b) / 2})`);
+  for (const [k, c] of S) {
+    let p = ""; DATA.fr[k].forEach((r, i) => p += (i ? "L" : "M") + sx(r[0]).toFixed(1) + "," + sy(r[1]).toFixed(1));
+    el("path", {d: p, fill: "none", stroke: c, "stroke-width": 2}, svg);
+    DATA.fr[k].forEach(r => el("circle", {cx: sx(r[0]), cy: sy(r[1]), r: 3, fill: c, stroke: "var(--surface)", "stroke-width": 1.5}, svg));
+  }
+  txt(svg, sx(10013) + 6, sy(-40.87) + 4, "−41 dB", "start", "lbl");
+  txt(svg, sx(10013) - 6, sy(-9.7) - 8, "−10 dB", "end", "lbl");
+  const F = DATA.fr.A3010;
+  hover(svg, box, m, W, H, F.map(r => sx(r[0])), i => `${F[i][0].toFixed(0)} Hz<br>` + S.map(([k, , n]) => `${n}: ${DATA.fr[k][i][1].toFixed(1)} dB`).join("<br>"), i => sy(DATA.fr.A3020[i][1]));
+})();
+
+// DAC error by code
+(function () {
+  const S = [["A3020", "var(--s1)", "", "A3020"], ["A3020b", "var(--s3)", "2 3", "second A3020"], ["A3010", "var(--s2)", "6 3", "A3010"]];
+  const box = document.getElementById("c-dac"), svg = box.querySelector("svg"), W = 640, H = 260, m = {l: 50, r: 16, t: 10, b: 40};
+  const sx = i => m.l + i / 127 * (W - m.l - m.r), sy = v => H - m.b - (v + 2) / 6 * (H - m.t - m.b);
+  for (const v of [-2, -1, 0, 1, 2, 3, 4]) { el("line", {x1: m.l, x2: W - m.r, y1: sy(v), y2: sy(v), class: v === 0 ? "axis" : "grid"}, svg); txt(svg, m.l - 6, sy(v) + 4, v, "end"); }
+  for (const c of [0, 16, 32, 48, 64, 80, 96, 112, 127]) { if (c % 16 === 0 && c) el("line", {x1: sx(c), x2: sx(c), y1: m.t, y2: H - m.b, class: "grid"}, svg); txt(svg, sx(c), H - m.b + 16, c); }
+  txt(svg, (m.l + W - m.r) / 2, H - 4, "magnitude code");
+  const yl = txt(svg, 12, (m.t + H - m.b) / 2, "error (steps)"); yl.setAttribute("transform", `rotate(-90 12 ${(m.t + H - m.b) / 2})`);
+  for (const [k, c, dash] of S) {
+    let p = ""; DATA.err[k].forEach((v, i) => p += (i ? "L" : "M") + sx(i).toFixed(1) + "," + sy(Math.max(-2, Math.min(4, v))).toFixed(1));
+    el("path", {d: p, fill: "none", stroke: c, "stroke-width": 2, "stroke-dasharray": dash}, svg);
+  }
+  txt(svg, sx(112) + 4, sy(2.3), "code 112", "start", "lbl");
+  const xs = Array.from({length: 128}, (_, i) => sx(i));
+  hover(svg, box, m, W, H, xs, i => `code ${i} · chord ${i >> 4} step ${i & 15}<br>` + S.map(([k, , , n]) => `${n}: ${DATA.err[k][i].toFixed(2)} steps`).join("<br>"), i => sy(Math.min(4, Math.max(...S.map(([k]) => DATA.err[k][i])))));
+})();
+</script>

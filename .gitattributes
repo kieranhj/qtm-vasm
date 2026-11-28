@@ -26,3 +26,4 @@ recordings/*.wav           filter=lfs diff=lfs merge=lfs -text
 recordings/*.bin           binary
 tools/prep/linlog.bin      binary
 *.json                     text eol=lf
+tools/audio/arc/bin/*      binary

@@ -16,6 +16,11 @@ preparation can be tuned to the real hardware. Write-up and findings:
 
 Needs Python 3 with numpy, scipy and matplotlib.
 
+Built copies of the five Arc programs are in `arc/bin/` (`name,ff8` = RISC OS Absolute),
+for anyone who wants to record a machine without building them. Rebuild with `build_arc.py`
+and copy them there if the sources change. Findings for a general audience:
+`docs/archimedes-audio-measured.html`.
+
 ## Test 1: the DAC code sweep
 
 ```
