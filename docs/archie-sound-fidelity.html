@@ -1,0 +1,568 @@
+<title>Archimedes Sound Fidelity</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column of lab notes; wide tables and charts scroll in their own boxes. */
+:root {
+  --bg: #f6f7f4; --surface: #ffffff; --ink: #1c211d; --ink-2: #5a635c; --rule: #dde2db;
+  --accent: #2f6b4f; --accent-soft: #e3efe7; --warn: #8a5a00; --warn-soft: #fbf0d9;
+  --s1: #257de0; --s2: #f47230; --s3: #00b894; --s4: #f2a600;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141815; --surface: #1c211d; --ink: #e8ece7; --ink-2: #9ba59d; --rule: #2e3530;
+  --accent: #7fc4a0; --accent-soft: #1f3328; --warn: #e8b85c; --warn-soft: #33290f;
+  --s1: #338ced; --s2: #e76624; --s3: #00a888; --s4: #d28e05; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #141815; --surface: #1c211d; --ink: #e8ece7; --ink-2: #9ba59d; --rule: #2e3530;
+  --accent: #7fc4a0; --accent-soft: #1f3328; --warn: #e8b85c; --warn-soft: #33290f;
+  --s1: #338ced; --s2: #e76624; --s3: #00a888; --s4: #d28e05; color-scheme: dark; }
+
+body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--f-body); }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 2.5rem 4rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: 2.4rem; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.6rem; font-weight: 600; margin-top: 3rem; padding-top: 1rem; border-top: 2px solid var(--ink); }
+h3 { font-size: 1.15rem; font-weight: 600; margin-top: 1.8rem; }
+p, li { max-width: 68ch; }
+p { margin: 0.7rem 0; }
+ul, ol { padding-left: 1.3rem; } li { margin: 0.3rem 0; }
+code, .mono { font-family: var(--f-mono); font-size: 0.88em; }
+a { color: var(--accent); }
+.eyebrow { font: 500 0.78rem var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.lede { font-size: 1.12rem; color: var(--ink-2); margin-top: 0.8rem; }
+.meta { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; margin-top: 1rem; font: 0.85rem var(--f-mono); color: var(--ink-2); }
+.tag { font: 500 0.72rem var(--f-mono); letter-spacing: 0.04em; text-transform: uppercase; padding: 0.1rem 0.45rem; border-radius: 3px; white-space: nowrap; }
+.tag.ds { background: var(--accent-soft); color: var(--accent); }
+.tag.model { background: var(--warn-soft); color: var(--warn); }
+.tag.rec { border: 1px solid var(--rule); color: var(--ink-2); }
+.status { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin-top: 1.8rem; }
+.status > div { background: var(--surface); padding: 1rem 1.1rem; min-width: 0; }
+.status h3 { margin: 0 0 0.4rem; font-size: 1rem; }
+.status p { margin: 0; font-size: 0.93rem; color: var(--ink-2); }
+.callout { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 0.8rem 1rem; margin: 1.2rem 0; max-width: 68ch; }
+.callout p { margin: 0.3rem 0; }
+.scroll { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; font-size: 0.9rem; width: 100%; min-width: 520px; background: var(--surface); }
+th, td { text-align: left; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font: 600 0.78rem var(--f-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); background: var(--bg); }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--f-mono); }
+.chart { background: var(--surface); border: 1px solid var(--rule); padding: 1rem 1rem 0.6rem; margin: 1.2rem 0; position: relative; }
+.chart h4 { margin: 0; font: 600 0.98rem var(--f-display); }
+.chart .sub { margin: 0.1rem 0 0.6rem; font-size: 0.85rem; color: var(--ink-2); }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart svg text { font: 11px var(--f-mono); fill: var(--ink-2); }
+.chart svg .lbl { font-weight: 500; fill: var(--ink); }
+.chart .grid { stroke: var(--rule); stroke-width: 1; }
+.chart .axis { stroke: var(--ink-2); stroke-width: 1; }
+.legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; font-size: 0.82rem; color: var(--ink-2); margin-bottom: 0.4rem; }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 3px; border-radius: 2px; background: var(--c); vertical-align: middle; margin-right: 0.4rem; }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font: 0.78rem/1.45 var(--f-mono); padding: 0.4rem 0.55rem; border-radius: 4px; white-space: nowrap; z-index: 2; }
+.rank { counter-reset: r; list-style: none; padding: 0; }
+.rank > li { counter-increment: r; position: relative; padding: 0.8rem 0 0.8rem 2.6rem; border-bottom: 1px solid var(--rule); max-width: none; }
+.rank > li::before { content: counter(r); position: absolute; left: 0; top: 0.75rem; font: 700 1.4rem var(--f-display); color: var(--accent); }
+.rank strong { font-family: var(--f-display); font-size: 1.05rem; }
+.foot { margin-top: 3rem; font-size: 0.85rem; color: var(--ink-2); }
+@media (max-width: 480px) { h1 { font-size: 1.9rem; } h2 { font-size: 1.35rem; } }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">QTM · VIDC1 · Lab notes</div>
+  <h1>Archimedes Sound Fidelity</h1>
+  <p class="lede">How the Archimedes gets sound out of VIDC, what the motherboard filter was for, and what we can change in QTM to make a filter-bypassed machine sound as good as it can.</p>
+  <div class="meta"><span>Started 28 Nov 2026</span><span>Machine: filter bypassed (stardot t=13630)</span><span>Recorder: Behringer UCA222, 16-bit / 48 kHz</span></div>
+</header>
+
+<section class="status" aria-label="Where this stands">
+  <div><h3>Known</h3><p>The DAC curve, the time-division stereo and the sample-rate limits, all from the VIDC datasheet.</p></div>
+  <div><h3>Modelled</h3><p>The cost of QTM's conversion table, its volume subtract, its sample stepping and the DAC images, all simulated from the datasheet.</p></div>
+  <div><h3>Measured</h3><p>Tests 1 to 5 on an A3020 with the filter bypassed, and tests 1 to 3 on an A3010 with the original filter. The biggest problem left after a bypass is a 3.2 kHz roll-off that the bypass does not remove.</p></div>
+</section>
+
+<p style="margin-top:1.2rem;font-size:0.9rem;color:var(--ink-2)">Tags: <span class="tag ds">datasheet</span> stated by Acorn · <span class="tag model">model</span> simulated, not yet measured · <span class="tag rec">needs recording</span> only the hardware can answer.</p>
+
+<h2>How VIDC makes sound</h2>
+<p>QTM does not mix channels into one stream. VIDC has up to 8 channel slots and a single DAC. QTM writes each MOD channel into the DMA buffer interleaved with the others (its "DMA gap" is the channel count), and VIDC plays the bytes one after another, each slot with its own stereo position. The channels are summed afterwards, in the analogue circuit, by averaging the slots.</p>
+<ul>
+  <li><span class="tag ds">datasheet</span> A 7-bit exponential DAC plus a sign bit. The sign steers the current to a "+" or a "−" pair of pins, and the board integrates and subtracts the two.</li>
+  <li><span class="tag ds">datasheet</span> 8 chords of 16 steps, each chord's step twice the last: an approximation to µ255 law. Levels run from 0 to 247<i>i</i>, the smallest step is <i>i</i>/16, so about 4 000:1, or roughly 72 dB.</li>
+  <li><span class="tag ds">datasheet</span> Stereo is time division: each slot's active time is split between the left and right pins, with 7 positions. The first quarter of every slot is muted for DAC settling.</li>
+  <li><span class="tag ds">datasheet</span> The sample rate register counts in 1 µs per byte, minimum 3 µs. RISC OS's 48 µs at 4 channels is 12 µs per slot, 3 µs of it muted.</li>
+  <li><span class="tag ds">datasheet</span> The board's integrating time constant "must be long enough to integrate over a complete sample cycle". That integrator is part of the output circuit, so it is probably still there after the bypass.</li>
+</ul>
+
+<div class="chart" id="c-dac">
+  <h4>VIDC1 DAC level by magnitude code</h4>
+  <p class="sub">Units of <i>i</i> = Iref/8. Each chord of 16 codes doubles the step size. From the datasheet, p.33.</p>
+  <svg viewBox="0 0 640 260" role="img" aria-label="DAC level rises slowly through chords 0 to 4 and steeply through chords 5 to 7, reaching 247 i at code 127."></svg>
+</div>
+
+<p>One consequence matters most. At loud levels the top chord's step is 1/32 of full scale, about 2 bits coarser than an 8-bit linear MOD sample. At quiet levels the log format is finer than 8-bit linear, but only if the source has the resolution to use it.</p>
+
+<h3>What the motherboard filter was for</h3>
+<p>The only figure in the stardot thread is that the filter "chops all frequencies above 10kHz". That is roughly half the default 20.8 kHz sample rate, so it is a reconstruction filter sized for the default rate. It removed the DAC images above about 10 kHz, the switching energy from the slots and stereo, and what IanJeffray calls "VIDC whine". The A4, A7000 and Risc PC don't have it. SKS1, who worked on early Arcs, fitted a better filter to an A310 prototype and it "sounded no better", which fits with the model results below: the worst distortion is inside the audio band, where no filter can reach.</p>
+
+<h3>Three kinds of artefact</h3>
+<div class="scroll"><table>
+  <thead><tr><th>Artefact</th><th>Cause</th><th>Where it lands</th><th>Fix</th></tr></thead>
+  <tbody>
+  <tr><td><strong>Resampling distortion</strong></td><td>QTM steps through samples and takes the nearest byte, with no interpolation</td><td>Inside the audio band</td><td>Prepare samples offline</td></tr>
+  <tr><td><strong>DAC images</strong></td><td>Each value is held for its slot</td><td>At <i>fs</i> ± <i>f</i></td><td>A faster sample period, once the filter is bypassed</td></tr>
+  <tr><td><strong>Switching, whine, crosstalk</strong></td><td>Slot switching, video, ground</td><td>Fixed tones and noise</td><td>Measure first</td></tr>
+  </tbody>
+</table></div>
+
+<h2>What the model found</h2>
+<p>These come from <code>tools/audio/analyse_model.py</code>. It models the datasheet's DAC curve and QTM's actual tables and code: the linear-to-log table that <code>setlinlogtab</code> builds from <code>Sound_SoundLog</code>, the volume table from <code>setvoltabs</code>, and the <code>SUBS</code> / <code>MOVMI</code> volume step in <code>a3_anyvolume</code>. Test signals are sines, measured by SINAD (signal against everything else) and THD.</p>
+
+<h3>QTM's conversion table rounds up</h3>
+<p><span class="tag model">model</span> Compared with the datasheet curve, the RISC OS table maps a linear sample <i>x</i> to about 2.04<i>x</i> <i>i</i>. Where it doesn't land exactly on a level, it always picks the one above: in 56 of the 107 inputs from 4 to 110 it picks a higher level than the nearest, and never a lower one. Inputs 120 to 127 all share the top code.</p>
+
+<div class="chart" id="c-sinad">
+  <h4>Conversion quality by signal level</h4>
+  <p class="sub">SINAD in dB for a sine at each level below full scale. Higher is better.</p>
+  <div class="legend">
+    <span style="--c:var(--s1)">8-bit linear (the MOD sample itself)</span>
+    <span style="--c:var(--s2)">QTM today (OS table)</span>
+    <span style="--c:var(--s3)">Nearest-level table</span>
+    <span style="--c:var(--s4)">16-bit source, nearest level</span>
+  </div>
+  <svg viewBox="0 0 640 300" role="img" aria-label="Line chart of SINAD against level. The OS table is 3 to 4 dB below the nearest-level table at loud levels. A 16-bit source holds about 34 to 40 dB at every level."></svg>
+</div>
+
+<div class="scroll"><table id="t-sinad">
+  <thead><tr><th class="n">Level dBFS</th><th class="n">8-bit linear</th><th class="n">QTM today</th><th class="n">THD today</th><th class="n">Nearest level</th><th class="n">16-bit source</th></tr></thead>
+  <tbody></tbody>
+</table></div>
+
+<div class="callout">
+  <p><strong>What this means.</strong> Choosing the nearest level, rather than the OS's rounded-up one, gains about 3 dB at loud levels and costs nothing at runtime. Below about −20 dBFS the 8-bit MOD sample is the limit, not the DAC. The log DAC's real strength, holding around 35 dB down to −42 dBFS, only shows with a source that has more than 8 bits.</p>
+  <p><strong>Caveat.</strong> The OS's rounding might deliberately compensate for the real chip. The DAC curve recording decides this.</p>
+</div>
+
+<h3>Volume as a subtract on the log code</h3>
+<p><span class="tag model">model</span> QTM's volume is a subtract from the log byte, clamped at zero, which is cheap and mostly works. Three things show up:</p>
+<ul>
+  <li>Only 46 of the 65 MOD volumes are distinct. Volumes 60 to 64 all play at full level, and from 32 upwards they come in pairs.</li>
+  <li>Most volumes play 0.2 to 0.7 dB louder than they should, which is the same rounding-up again.</li>
+  <li>At volumes 1 and 2, clamping at zero cuts off the quiet parts of the wave: SINAD is 17.7 and 23.8 dB, against about 30 dB for the best a log DAC could do.</li>
+</ul>
+
+<div class="chart" id="c-vol">
+  <h4>Volume error by MOD volume</h4>
+  <p class="sub">QTM's actual gain minus the ideal gain, in dB. Above zero means louder than it should be.</p>
+  <svg viewBox="0 0 640 220" role="img" aria-label="Bar chart: most volumes are 0.2 to 0.7 dB too loud; volume 1 is 0.5 dB too quiet."></svg>
+</div>
+
+<h3>Stepping through samples</h3>
+<p><span class="tag model">model</span> The test plays a looped sample with 5 sine cycles in 64 bytes, at C-3, C-4 and C-5, with the sample period at 48, 32 and 24 µs. The distortion in the audible band comes out at <strong>−17 dB whatever the sample period</strong>. Most of it is images of the sample's own rate, and Paula on the Amiga makes those too. A faster sample period doesn't reduce it. Storing the sample band-limited at 2× its rate brings it down to <strong>−23 dB</strong> at every rate tested, at no extra runtime cost (only twice the memory).</p>
+<p>This test sample is deliberately bright. Lower-pitched content within a sample distorts less, by about 6 dB per octave.</p>
+
+<h3>DAC images with the filter bypassed</h3>
+<p><span class="tag model">model</span> With one channel playing in 4-channel mode, the first image at <i>fs</i> − <i>f</i> is within 0.5 dB of the tone itself, before the board's integrator. At 48 µs, an 8 kHz tone puts an equally loud image at 12.8 kHz. At 24 µs the images start at 33.7 kHz.</p>
+<div class="scroll"><table>
+  <thead><tr><th class="n">Period</th><th class="n">2 kHz tone</th><th class="n">4 kHz tone</th><th class="n">8 kHz tone</th></tr></thead>
+  <tbody>
+  <tr><td class="n">48 µs</td><td class="n">18 833 Hz</td><td class="n">16 833 Hz</td><td class="n">12 833 Hz</td></tr>
+  <tr><td class="n">32 µs</td><td class="n">29 250 Hz</td><td class="n">27 250 Hz</td><td class="n">23 250 Hz</td></tr>
+  <tr><td class="n">24 µs</td><td class="n">39 667 Hz</td><td class="n">37 667 Hz</td><td class="n">33 667 Hz</td></tr>
+  </tbody>
+</table></div>
+<p>The table gives the frequency of the first image for each tone. On a bypassed machine, a sample period of 48 µs is worse than with the filter in place. 32 µs is the minimum, and 24 µs is better. How much the board's integrator cuts these images is unknown until it is measured.</p>
+
+<h2>Recording with the UCA222</h2>
+<p>16-bit at 48 kHz is enough for everything that changes how QTM should work. It can't show content above 24 kHz, and there is a way around that.</p>
+<div class="scroll"><table>
+  <thead><tr><th>Measurement</th><th>At 16-bit / 48 kHz</th></tr></thead>
+  <tbody>
+  <tr><td>DAC curve and +/− mismatch</td><td>Yes. Averaging many cycles gets below one recorder step, down to chord 0 at −72 dB.</td></tr>
+  <tr><td>Frequency response to 20 kHz</td><td>Yes</td></tr>
+  <tr><td>Resampling distortion</td><td>Yes, it is all in the audio band</td></tr>
+  <tr><td>Images at 48 µs</td><td>Yes, below 20.8 kHz</td></tr>
+  <tr><td>Noise, 50 Hz hum, 15.625 kHz line whine</td><td>Yes</td></tr>
+  <tr><td>Crosstalk between slots, stereo position gains</td><td>Yes, as in-band levels</td></tr>
+  <tr><td>Images at 24 µs</td><td>No: above 24 kHz, and inaudible</td></tr>
+  <tr><td>Slot waveforms at 80 kHz and above</td><td>No: needs an oscilloscope</td></tr>
+  </tbody>
+</table></div>
+<ul>
+  <li><strong>Time-scaling.</strong> The digital side scales exactly with the sample period. A test at 48 µs with tones at half frequency shows the image pattern of 24 µs, below 24 kHz. Only the analogue path doesn't scale, and the frequency response test measures that separately.</li>
+  <li><strong>The recorder's own filter.</strong> The UCA222 is thought to use TI's PCM2902; its filter hasn't been checked. A spur that only appears at 24 µs and moves when the tone changes is the recorder, not the Arc.</li>
+  <li><strong>Level.</strong> Set the gain with a full-scale tone first. The bypass may also skip the headphone driver.</li>
+  <li><strong>Ground loops.</strong> Record silence with the Arc on and idle. A laptop on battery rules out a loop.</li>
+  <li><strong>Unlocked clocks.</strong> The scripts will estimate each tone's exact frequency rather than trust nominal rates.</li>
+</ul>
+
+<h2>Test plan</h2>
+<p>A small test program on the Arc writes raw codes straight into the sound DMA, so the hardware is measured without QTM in the way. Then the same tests run through QTM, to measure the player.</p>
+<div class="scroll"><table>
+  <thead><tr><th>#</th><th>Test</th><th>Answers</th><th>Status</th></tr></thead>
+  <tbody>
+  <tr><td class="n">1</td><td>Code sweep: for each of the 128 magnitudes, a 100 Hz square of +code against 0, then −code against 0, between two 1 kHz markers. 2 min 15 s.</td><td>The real DAC curve, +/− mismatch, +0 against −0, the bit order on the board</td><td><span class="tag ds">done</span> A3020, 28 Nov</td></tr>
+  <tr><td class="n">2</td><td><code>freqresp</code>: 31 sine tones from 20 Hz to 20 kHz at 24 µs, and to 9.5 kHz at 48 µs</td><td>Frequency response of the bypassed path, including the integrator</td><td><span class="tag ds">done</span> A3020, 28 Nov</td></tr>
+  <tr><td class="n">3</td><td><code>noise</code>: +0 and −0 silence in MODEs 12, 13, 27 and 28, then 5 s with sound DMA off</td><td>Noise floor, hum, video whine, and whether the screen mode changes them</td><td><span class="tag ds">done</span> MODEs 12 and 13 only</td></tr>
+  <tr><td class="n">4</td><td><code>slots</code>: 4 channels at 48, 32, 24, 16 and 12 µs; one slot plays, the others at 0 or full scale</td><td>Settling at short slots, and interference from the neighbouring slot</td><td><span class="tag ds">done</span> A3020, 28 Nov</td></tr>
+  <tr><td class="n">5</td><td><code>stereo</code>: a 100 Hz square at each of the 7 stereo positions</td><td>Real stereo gains and separation</td><td><span class="tag ds">done</span> A3020, 28 Nov</td></tr>
+  <tr><td class="n">6</td><td>Tones at steps other than 1.0, such as 1.37, through QTM</td><td>Check the resampling model</td><td><span class="tag rec">needs recording</span></td></tr>
+  </tbody>
+</table></div>
+
+<h3>Test 1 in detail</h3>
+<p>The program, <code>build/codesweep,ff8</code>, takes over the sound system the way QTM does. It hands <code>Sound_Configure</code> its own channel handler, runs 1 channel at 48 µs with stereo centre, and puts the old configuration back at the end or on Escape. Each step is a square against code 0 rather than +code against −code, because the coupling capacitors block DC: a symmetric square would only show the sum of the two halves, so a mismatch between them would be invisible.</p>
+<p>The analyser finds the two markers and works out the Arc's real sample rate in the recorder's clock from their spacing. It then measures each step's 100 Hz fundamental over whole cycles and scales the levels to the datasheet's units using the upper chords. It reports the error per code in steps of its chord, the −/+ ratio per chord, the noise floor, the left/right balance and which byte layout fits. It also writes a 256-byte linear-to-log table built from the measured levels, in QTM's format.</p>
+<p>Under Arculator, whose conversion table is the datasheet curve, the analysis recovers that curve, apart from a fixed 0.02 <i>i</i> at the lowest codes. That 0.02 <i>i</i> is integer rounding in Arculator's audio path, about 82 dB below full scale. It picks the RISC OS byte layout (residual 0.02 <i>i</i>, against 55 <i>i</i> for sign-in-D7).</p>
+<p>How to run and record it: <code>tools/audio/README.md</code>.</p>
+
+<h2>Test 1 results: A3020, filter bypassed</h2>
+<p>Recorded on the UCA222 at line-in level 60, peaking at −3.9 dBFS with no clipping. Files: <code>recordings/codesweep-test1-a3020-no-filter-level-60.*</code>.</p>
+<p><strong>Repeated in MODE 12</strong> (24 MHz clock, rate 20 833 Hz as nominal; <code>recordings/codesweep-test1-mode12-a3020-no-filter-level-60.*</code>). Chords 4–7 agree with the first run to within 0.02 steps and the low chords to within about 0.1 steps. The ± mismatch and the drops at codes 48 and 64 repeat to within 0.03 <i>i</i>, and the two measured tables differ in 6 of 256 entries, each by one code. The DAC's behaviour is stable, and the screen mode and clock don't change it.</p>
+
+<h3>The sound runs 4.9% fast</h3>
+<p>The marker came out at 1 093 Hz, not 1 041.7 Hz: the Arc played 21 855 bytes a second where RISC OS asked for 20 833. That works out to VIDC running from a 25.18 MHz clock instead of the 24 MHz RISC OS assumes. The machine was in MODE 27, 640×480 VGA, which uses the 25.175 MHz clock: on the A3020 the VIDC clock follows the screen mode, so the sound rate does too. Future recordings use MODE 12, which runs from 24 MHz. Uncorrected, music plays about 0.83 semitones sharp; QTM already has code to measure the clock (<code>checkclockcalc</code>). For these tests it only matters that the analyser measures the real rate, which it now does.</p>
+
+<h3>The board does reroute the bits</h3>
+<p>The RISC OS byte layout, with the sign in bit 0, fits with a residual of 2.5 <i>i</i>, against 55 <i>i</i> for the datasheet's sign-in-D7. The board does route the bits as RISC OS expects.</p>
+
+<h3>The negative half is 0.54 dB quieter</h3>
+<p>The difference is the same in every chord, from 0.53 to 0.57 dB, so it is a plain gain difference between the + and − output paths, not a difference in the curve. A wave's negative half comes out about 6% smaller than its positive half, which makes second-harmonic distortion: −37 dB at full scale with the OS table. A table that aims each half at its own measured levels cancels it.</p>
+
+<h3>The low chords' steps are too big, and the DAC is not monotonic</h3>
+<p>Scaled to the datasheet, chords 4 to 7 are within 1–4% of it. Chords 1 to 3 have steps 11–20% bigger than they should be, so the level climbs too fast within each chord and then falls back at the next. At codes 48 and 64 it falls below the code before: by 0.39 <i>i</i> and 0.35 <i>i</i>. Within a chord the error grows in jumps at the binary bits of the step number, about half a step at step 8, so the DAC's step currents are binary-weighted with mismatched weights. Both halves show the same pattern to within 0.05 steps, so the curve is common to both paths and only the gain differs.</p>
+
+<div class="chart" id="c-a3020">
+  <h4>Measured error by code, A3020</h4>
+  <p class="sub">Measured level minus the datasheet level, in steps of the code's own chord, each half on its own scale. Zero is the datasheet.</p>
+  <div class="legend"><span style="--c:var(--s1)">+ half</span><span style="--c:var(--s2)">− half</span></div>
+  <svg viewBox="0 0 640 260" role="img" aria-label="Error by code: near zero in chords 0 and 4 to 7, rising to 1.7, 3.4 and 2.2 steps through chords 1, 2 and 3, and falling back at each chord boundary. The two halves overlap."></svg>
+</div>
+
+<div class="scroll"><table>
+  <thead><tr><th>Chord</th><th class="n">Codes</th><th class="n">Datasheet step</th><th class="n">Measured step</th><th class="n">Ratio</th><th class="n">Jump into chord</th></tr></thead>
+  <tbody>
+  <tr><td>0</td><td class="n">0–15</td><td class="n">0.0625 <i>i</i></td><td class="n">0.0650 <i>i</i></td><td class="n">1.04</td><td class="n">—</td></tr>
+  <tr><td>1</td><td class="n">16–31</td><td class="n">0.125 <i>i</i></td><td class="n">0.138 <i>i</i></td><td class="n">1.11</td><td class="n">+0.08 <i>i</i> (expect +0.06)</td></tr>
+  <tr><td>2</td><td class="n">32–47</td><td class="n">0.25 <i>i</i></td><td class="n">0.301 <i>i</i></td><td class="n">1.20</td><td class="n">+0.04 <i>i</i> (expect +0.12)</td></tr>
+  <tr><td>3</td><td class="n">48–63</td><td class="n">0.5 <i>i</i></td><td class="n">0.563 <i>i</i></td><td class="n">1.13</td><td class="n"><strong>−0.39 <i>i</i></strong> (expect +0.25)</td></tr>
+  <tr><td>4</td><td class="n">64–79</td><td class="n">1 <i>i</i></td><td class="n">0.962 <i>i</i></td><td class="n">0.96</td><td class="n"><strong>−0.35 <i>i</i></strong> (expect +0.50)</td></tr>
+  <tr><td>5</td><td class="n">80–95</td><td class="n">2 <i>i</i></td><td class="n">2.018 <i>i</i></td><td class="n">1.01</td><td class="n">+1.80 <i>i</i> (expect +1.00)</td></tr>
+  <tr><td>6</td><td class="n">96–111</td><td class="n">4 <i>i</i></td><td class="n">3.981 <i>i</i></td><td class="n">1.00</td><td class="n">+2.16 <i>i</i> (expect +2.00)</td></tr>
+  <tr><td>7</td><td class="n">112–127</td><td class="n">8 <i>i</i></td><td class="n">7.913 <i>i</i></td><td class="n">0.99</td><td class="n">+3.95 <i>i</i> (expect +4.00)</td></tr>
+  </tbody>
+</table></div>
+<p>Codes 32 to 64 are levels of about −38 to −24 dB below full scale: the quiet ends of notes and fades, where the non-monotonic steps add their own distortion.</p>
+
+<h3>What a measured table gains</h3>
+<p>The analyser's table, <code>recordings/codesweep-test1-a3020-no-filter-level-60-linlog.bin</code>, picks for each linear sample the code whose measured level is nearest, for each half. Played through the measured DAC, a sine at each level gives:</p>
+<div class="scroll"><table>
+  <thead><tr><th class="n">Level dBFS</th><th class="n">OS table SINAD / THD</th><th class="n">Datasheet-nearest</th><th class="n">Measured table</th></tr></thead>
+  <tbody>
+  <tr><td class="n">0</td><td class="n">31.7 / −32.5</td><td class="n">33.8 / −35.1</td><td class="n">33.3 / −34.4</td></tr>
+  <tr><td class="n">−6</td><td class="n">33.3 / −36.7</td><td class="n">35.0 / −37.1</td><td class="n"><strong>36.7 / −52.9</strong></td></tr>
+  <tr><td class="n">−12</td><td class="n">32.0 / −34.5</td><td class="n">33.9 / −36.3</td><td class="n"><strong>34.9 / −40.2</strong></td></tr>
+  <tr><td class="n">−18</td><td class="n">27.5 / −30.7</td><td class="n">29.7 / −33.6</td><td class="n"><strong>30.8 / −39.0</strong></td></tr>
+  <tr><td class="n">−24</td><td class="n">25.6 / −31.8</td><td class="n">25.6 / −31.8</td><td class="n">26.2 / −41.1</td></tr>
+  <tr><td class="n">−30</td><td class="n">20.8 / −32.3</td><td class="n">20.8 / −32.3</td><td class="n">20.5 / −31.9</td></tr>
+  </tbody>
+</table></div>
+<div class="callout">
+  <p><strong>What this means.</strong> On this machine a measured table gains 1.6 to 3.4 dB of SINAD from full scale to −18 dBFS, and cuts distortion (THD) by up to 16 dB, at no runtime cost. Most of the THD gain comes from correcting the ± mismatch. Below about −24 dBFS the 8-bit samples are the limit, as the model predicted.</p>
+  <p><strong>Answered by the A3010.</strong> The ± mismatch belongs to the board, and the step errors partly to VIDC's design and partly to each chip. Each machine needs its own measured table to get the full gain, and the datasheet-nearest table is the better default for everyone. See the A3010 results below.</p>
+</div>
+<p>The noise measured in the gaps between steps, −44 dB below the DAC's full scale, is 90% below 40 Hz: the coupling capacitors settling after each step, not hiss. The real noise floor is test 3's job.</p>
+
+<h2>Tests 2–5 results: A3020, filter bypassed</h2>
+<p>All in MODE 12 at line-in level 60, files in <code>recordings/</code>. The noise test could only show MODEs 12 and 13 on this monitor.</p>
+
+<h3>The bypass leaves a 3.2 kHz roll-off</h3>
+<p>The response falls steadily above 1 kHz: −3 dB at about 3.7 kHz relative to the flat region, −10 dB at 10 kHz and −16 dB at 20 kHz. It is the same at 24 µs and 48 µs, so it belongs to the analogue circuit, not the sample rate. A single resistor-capacitor low-pass at <strong>3.2 kHz, a time constant of 49.5 µs</strong>, fits it to within 0.05 dB rms. That is the integrator the datasheet describes, whose time constant "must be long enough to integrate over a complete sample cycle", sized for the default 48 µs period. The bypass removes the filter after it, not the integrator itself. The bass is fine: the coupling capacitors only start to cut in at about 4 Hz.</p>
+
+<div class="chart" id="c-resp">
+  <h4>Frequency response, A3020 with the filter bypassed</h4>
+  <p class="sub">Level relative to 1 kHz, with the DAC's own pulse shape taken out, so this is the analogue path.</p>
+  <div class="legend"><span style="--c:var(--s1)">24 µs</span><span style="--c:var(--s2)">48 µs</span><span style="--c:var(--ink-2)">first-order low-pass at 3.2 kHz</span></div>
+  <svg viewBox="0 0 640 280" role="img" aria-label="Flat to about 1 kHz, then falling: minus 3.7 dB at 4 kHz, minus 9.8 dB at 10 kHz, minus 15.8 dB at 20 kHz. The two sample periods overlap, and a 3.2 kHz first-order curve lies on top of them."></svg>
+</div>
+<div class="callout">
+  <p><strong>What this means.</strong> This is now the largest audible flaw: treble is 10 dB down at 10 kHz even with the filter bypassed. Because it is a plain first-order roll-off, it can be undone exactly, by a treble boost after the Arc, by a smaller integrator capacitor on the board (which only makes sense with a sample period of 24 µs or less), or by boosting treble in the samples during the offline prep pass. That last option suits the log DAC well: its error is a fixed fraction of the level, so turning the samples down to make room for the boost costs little quality.</p>
+</div>
+
+<h3>Where the roll-off comes from: the audio hybrid</h3>
+<p>The A3010/A3020/A4000 circuit diagram (Heron 'E' main PCB, drawing 0194,500 sheet 2) puts the audio on a thick-film module, <strong>0194007 Audio Hybrid</strong> (IM2). The drawing shows the topology but not the values inside it. Each channel has two stages:</p>
+<ol>
+  <li><strong>A subtractor that also integrates.</strong> An LM324 stage takes VIDC's "+" and "−" pin currents, through load resistors to SndVDD, and subtracts them. Its feedback is a resistor and capacitor in parallel, which makes it a first-order low-pass: the 3.2 kHz pole measured above.</li>
+  <li><strong>The filter and driver.</strong> Three resistors in series, a capacitor to ground at the first and third junctions, and one from the output back to the middle: a third-order Sallen-Key low-pass on one LM324 stage. It is buffered by a BC239 emitter follower, then the output passes through C60/C68 (100 µF) and 3.3 Ω to the headphone socket. The internal speaker's LM386 takes left and right mixed through 4.7 kΩ.</li>
+</ol>
+<p>The A3010/A3020/A4000 bypass from the stardot thread wires LM324 pins 7 and 8, the outputs of stage 1, to C60 and C68. That skips stage 2 and its transistor driver and keeps stage 1, which is exactly what test 2 shows: one clean pole at 3.2 kHz and nothing after it. It also means the headphone socket is now driven by the op-amp alone through 3.3 Ω: fine at line level, but low-impedance headphones may distort.</p>
+<p>The ± mismatch from test 1 probably comes from the tolerances of stage 1's subtractor resistors rather than from VIDC. If it does, a second machine will show a different mismatch.</p>
+
+<h2>A3010 results: the original filter</h2>
+<p>Tests 1 to 3 on an A3010 with its filter in place, in MODE 12 at line-in level 60. Files: <code>recordings/*-a3010-filter-level-60.*</code>.</p>
+
+<h3>The original filter is a fourth-order low-pass at 2.8 kHz</h3>
+<p>The response is flat to 2 kHz, rising 0.2 dB at 1.6 kHz, then falls fast: −5 dB at 3.2 kHz, −18.5 dB at 5 kHz, <strong>−41 dB at 10 kHz</strong> and −64 dB at 20 kHz, 24 dB per octave at the top. Taking the integrator as the A3020's 3.2 kHz, the hybrid's third-order filter fits as a real pole at 4.25 kHz and a resonant pair at 2.70 kHz with Q 1.24, to within 0.02 dB rms. Together with the integrator that is close to a fourth-order Butterworth low-pass with −3 dB at about 2.84 kHz. The filter's resonance offsets the integrator's early droop, so the passband is flat.</p>
+
+<div class="chart" id="c-filter">
+  <h4>Original filter against the bypass</h4>
+  <p class="sub">Analogue response relative to 1 kHz, 24 µs, both machines in MODE 12.</p>
+  <div class="legend"><span style="--c:var(--s2)">A3010, original filter</span><span style="--c:var(--s1)">A3020, filter bypassed</span></div>
+  <svg viewBox="0 0 640 300" role="img" aria-label="Both flat to 2 kHz. The bypassed A3020 falls gently to minus 16 dB at 20 kHz. The filtered A3010 falls steeply, to minus 41 dB at 10 kHz and minus 64 dB at 20 kHz."></svg>
+</div>
+
+<div class="callout">
+  <p><strong>What this means.</strong> "Chops all frequencies above 10kHz" understates it: the original filter is already 5 dB down at 3.2 kHz and 41 dB down at 10 kHz. The bypass gains 31 dB at 10 kHz but still leaves the integrator's 3.2 kHz roll-off. Arculator's "Original" filter setting, a second-order low-pass at 2.2 kHz, has about the right corner but half the real slope.</p>
+</div>
+
+<h3>The DAC: some errors are VIDC's, some the chip's, and the mismatch is the board's</h3>
+<ul>
+  <li><strong>The ± halves match on the A3010</strong>: −0.01 to −0.08 dB, against the A3020's −0.54 dB. The mismatch comes from the board, most likely the tolerances of the hybrid's subtractor resistors, not from VIDC.</li>
+  <li><strong>Shared by both chips, so part of VIDC's design:</strong> chords 1 to 3 have steps 11–20% too large, and the level falls back at codes 48 and 64 (A3010: −0.34 and −0.53 <i>i</i>; A3020: −0.40 and −0.33 <i>i</i>).</li>
+  <li><strong>Particular to each chip:</strong> the A3010 falls by 5.1 <i>i</i> at code 112, where the top chord starts (the datasheet expects a rise of 4 <i>i</i>), and its chord 6 steps are 13% large. The A3020 has neither. Overall the two curves differ by 0.72 steps rms.</li>
+</ul>
+<p>Played through each machine's measured DAC, as SINAD / THD in dB:</p>
+<div class="scroll"><table>
+  <thead><tr><th>DAC</th><th>Table</th><th class="n">0 dBFS</th><th class="n">−6 dBFS</th><th class="n">−12 dBFS</th><th class="n">−18 dBFS</th></tr></thead>
+  <tbody>
+  <tr><td>A3020</td><td>OS (QTM today)</td><td class="n">31.6 / −32.3</td><td class="n">33.2 / −36.6</td><td class="n">32.1 / −34.6</td><td class="n">27.5 / −30.7</td></tr>
+  <tr><td>A3020</td><td>datasheet-nearest</td><td class="n">33.6 / −34.9</td><td class="n">35.0 / −37.0</td><td class="n">33.9 / −36.3</td><td class="n">29.7 / −33.6</td></tr>
+  <tr><td>A3020</td><td>A3020 measured</td><td class="n">33.0 / −34.1</td><td class="n"><strong>36.7 / −52.0</strong></td><td class="n">34.9 / −40.2</td><td class="n">30.9 / −39.2</td></tr>
+  <tr><td>A3020</td><td>A3010 measured</td><td class="n">31.8 / −34.4</td><td class="n">30.0 / −33.7</td><td class="n">32.3 / −34.8</td><td class="n">30.9 / −37.8</td></tr>
+  <tr><td>A3010</td><td>OS (QTM today)</td><td class="n">27.5 / −27.9</td><td class="n">29.8 / −32.3</td><td class="n">32.0 / −35.6</td><td class="n">25.9 / −28.6</td></tr>
+  <tr><td>A3010</td><td>datasheet-nearest</td><td class="n">29.3 / −30.0</td><td class="n">30.0 / −31.3</td><td class="n">35.6 / −40.4</td><td class="n">29.3 / −34.2</td></tr>
+  <tr><td>A3010</td><td>A3020 measured</td><td class="n">28.6 / −29.2</td><td class="n">30.3 / −32.3</td><td class="n">32.3 / −35.0</td><td class="n">27.9 / −31.1</td></tr>
+  <tr><td>A3010</td><td>A3010 measured</td><td class="n">29.9 / −30.3</td><td class="n"><strong>37.0 / −48.0</strong></td><td class="n">34.5 / −40.0</td><td class="n">30.8 / −37.7</td></tr>
+  </tbody>
+</table></div>
+<div class="callout">
+  <p><strong>What this means.</strong> A machine's own table is best on that machine: on the A3010 it gains 7 dB of SINAD over QTM today at −6 dBFS and cuts THD from −32 to −48 dB. Another machine's table often does worse than the datasheet-nearest one. So the right default for everyone is the datasheet-nearest table, which beats the OS table on both machines at every level, with a measured table as an option for anyone who records their own machine.</p>
+</div>
+
+<h3>Noise with the filter in</h3>
+<p>−75.7 dB below a full-scale sine, at the recorder's own floor, with the line whine at −117 dB. The filter takes out what little high-frequency noise the bypassed machine had; the bypass costs about 3 dB of noise, which is still 35 dB below the DAC's conversion error.</p>
+
+<h2>Back to the A3020: noise</h2>
+<h3>Noise is not a problem</h3>
+<p>Silence measures −73 dB below a full-scale sine, and the recorder on its own (the Arc switched off) −76.6 dB. That puts the Arc's own noise at about −76 dB, mostly a little hum below 2 kHz: 100 Hz at −87 dB. The 15.625 kHz line whine is at −98 dB, inaudible. +0 and −0 are the same, and MODEs 12 and 13 are the same. That is 35 to 40 dB below the DAC's own conversion error, so noise needs no work. With sound DMA switched off it is slightly louder, −71 dB, with tones at 274 and 374 Hz; QTM never runs like that.</p>
+
+<h3>Short slots settle; loud channels move the others</h3>
+<div class="scroll"><table>
+  <thead><tr><th class="n">Period</th><th>Other slots</th><th class="n">+32</th><th class="n">+64</th><th class="n">+96</th><th class="n">+127</th><th class="n">−127</th></tr></thead>
+  <tbody>
+  <tr><td class="n">48 µs</td><td>zero</td><td class="n">0.00</td><td class="n">0.00</td><td class="n">0.00</td><td class="n">0.00</td><td class="n">0.00</td></tr>
+  <tr><td class="n">32 µs</td><td>zero</td><td class="n">+0.18</td><td class="n">+0.04</td><td class="n">+0.02</td><td class="n">+0.14</td><td class="n">+0.18</td></tr>
+  <tr><td class="n">24 µs</td><td>zero</td><td class="n">−0.14</td><td class="n">−0.02</td><td class="n">+0.01</td><td class="n">+0.20</td><td class="n">+0.24</td></tr>
+  <tr><td class="n">16 µs</td><td>zero</td><td class="n">+0.16</td><td class="n">+0.01</td><td class="n">0.00</td><td class="n">+0.22</td><td class="n">+0.27</td></tr>
+  <tr><td class="n">12 µs</td><td>zero</td><td class="n">−0.11</td><td class="n">−0.08</td><td class="n">−0.01</td><td class="n">+0.22</td><td class="n">+0.26</td></tr>
+  <tr><td class="n">48 µs</td><td>full</td><td class="n">+0.57</td><td class="n">+0.48</td><td class="n">+0.32</td><td class="n">+0.50</td><td class="n"><strong>−1.82</strong></td></tr>
+  <tr><td class="n">32 µs</td><td>full</td><td class="n">+0.69</td><td class="n">+0.54</td><td class="n">+0.39</td><td class="n">+0.52</td><td class="n">−1.40</td></tr>
+  <tr><td class="n">24 µs</td><td>full</td><td class="n">+0.42</td><td class="n">+0.33</td><td class="n">+0.43</td><td class="n">+0.52</td><td class="n">−1.08</td></tr>
+  <tr><td class="n">16 µs</td><td>full</td><td class="n">+0.38</td><td class="n">+0.37</td><td class="n">+0.43</td><td class="n">+0.53</td><td class="n">−0.58</td></tr>
+  <tr><td class="n">12 µs</td><td>full</td><td class="n">+0.33</td><td class="n">+0.36</td><td class="n">+0.43</td><td class="n">+0.52</td><td class="n">−0.36</td></tr>
+  </tbody>
+</table></div>
+<p>4 channels, one slot playing a 100 Hz square of the code shown against 0. Each value is the level in dB relative to 48 µs with the other slots at zero. With the other slots at zero, every rate down to 12 µs per frame (3 µs slots) holds within 0.3 dB: the DAC settles in time even at the fastest rate. With the other three slots at full scale, positive steps read about 0.5 dB high and the negative step up to 1.8 dB low, so a loud channel changes the gain of the others, which in music means intermodulation between channels. The effect shrinks as the rate goes up, from −1.8 dB at 48 µs to −0.4 dB at 12 µs: another reason to run fast. This phase also captured the carrier itself: with the slots at different levels, a steady 20.8 kHz tone at 48 µs, which at 32 µs and faster moves above what the recorder can hear.</p>
+
+<h3>Stereo: exact positions, 37 dB separation</h3>
+<p>The centre and the two-thirds positions measure as the datasheet says: left shares of 0.502, 0.665 and 0.339. At the hard positions 1.5% leaks into the other side, a separation of 36.7 dB. Sound_Stereo values of ±85 still gave the hard positions, so the 83% and 17% positions need a value between 42 and 85; they weren't measured.</p>
+
+<h2>Candidate improvements</h2>
+<p>Ranked by expected gain against effort. All but the last cost nothing at runtime.</p>
+<ol class="rank">
+  <li><strong>Undo the 3.2 kHz roll-off.</strong> Measured: treble is 10 dB down at 10 kHz with the filter bypassed. A first-order treble boost undoes it exactly. This can be done after the Arc, on the board with a smaller integrator capacitor, or in the samples during the prep pass, aimed at the pitch each sample is mostly played at. <span class="tag ds">measured</span></li>
+  <li><strong>Run at 24 µs or faster on a bypassed machine.</strong> Without the filter, 48 µs puts images as loud as the tones into the audible band. This doubles the mixer's load at 4 channels on an ARM2. <span class="tag model">model</span></li>
+  <li><strong>Store samples at 2× their rate, band-limited, in the offline prep pass.</strong> About 6 dB less resampling distortion at any sample period, for twice the memory. <code>tools/prep</code> and the <code>gg</code> variant already do offline sample preparation. <span class="tag model">model</span></li>
+  <li><strong>Replace QTM's conversion table.</strong> By default with the datasheet-nearest table, which beats the OS table on both machines at every level: about 2 dB more SINAD at full scale and up to 3.6 dB at −12 dBFS. Optionally with a table measured on the user's own machine, which gains up to 7 dB at −6 dBFS and cuts THD by up to 16 dB, but only on that machine. <span class="tag ds">measured</span></li>
+  <li><strong>Build the volume table from the same curve.</strong> This fixes the 0.2 to 0.7 dB gain error and gives all 65 volumes their own level where the codes allow it. <span class="tag model">model</span></li>
+  <li><strong>Use sources with more than 8 bits for new music.</strong> Converted straight to log, they hold about 35 dB SINAD down to −42 dBFS, against 10 dB for 8-bit. <span class="tag model">model</span></li>
+  <li><strong>Try noise-shaped conversion.</strong> Choose log codes by error diffusion, so the conversion error moves to high frequencies. Not yet modelled.</li>
+  <li><strong>Analogue clean-up is not needed for noise.</strong> Test 3 put the Arc's noise at about −76 dB and the line whine at −98 dB. <span class="tag ds">measured</span></li>
+</ol>
+
+<div class="foot">
+  <p>Sources: VIDC Datasheet (Acorn, 1986), §6.10, pp. 32–33. Stardot thread "Simple DIY method to get unfiltered high quality sound on your Archimedes!" (t=13630). QTM v1.49b source in qtm-vasm (<code>src/shared/qtm_dma.asm</code>, <code>qtm_mod.asm</code>). Model: <code>tools/audio/vidc.py</code> and <code>tools/audio/analyse_model.py</code>.</p>
+</div>
+</div>
+
+<script>
+const D = {"sinad":[{"level":0,"linear8":50.0,"os":33.8,"os_thd":-35.1,"nearest":37.2,"hires":37.2},{"level":-6,"linear8":43.7,"os":35.5,"os_thd":-45.7,"nearest":38.7,"hires":39.6},{"level":-12,"linear8":37.9,"os":34.1,"os_thd":-38.4,"nearest":37.1,"hires":39.3},{"level":-18,"linear8":32.1,"os":30.1,"os_thd":-35.9,"nearest":31.8,"hires":36.7},{"level":-24,"linear8":26.3,"os":26.3,"os_thd":-45.7,"nearest":26.3,"hires":37.2},{"level":-30,"linear8":20.6,"os":20.6,"os_thd":-32.9,"nearest":20.6,"hires":36.2},{"level":-36,"linear8":15.2,"os":15.2,"os_thd":-22.6,"nearest":15.2,"hires":35.1},{"level":-42,"linear8":10.2,"os":10.2,"os_thd":-12.2,"nearest":10.2,"hires":33.7}],
+"vol":[[1,182,-0.49],[2,154,-0.11],[3,138,-0.04],[4,124,0.11],[5,116,-0.05],[6,108,0.02],[7,100,0.17],[8,92,0.45],[9,88,0.29],[10,84,0.23],[11,80,0.22],[12,76,0.25],[13,72,0.3],[14,68,0.36],[15,64,0.43],[16,60,0.61],[17,58,0.51],[18,56,0.44],[19,54,0.39],[20,52,0.36],[21,50,0.34],[22,48,0.34],[23,46,0.35],[24,44,0.36],[25,42,0.38],[26,40,0.4],[27,38,0.42],[28,36,0.45],[29,34,0.48],[30,32,0.52],[31,30,0.55],[32,28,0.69],[33,28,0.42],[34,26,0.58],[35,26,0.33],[36,24,0.51],[37,24,0.27],[38,22,0.46],[39,22,0.23],[40,20,0.43],[41,20,0.21],[42,18,0.41],[43,18,0.2],[44,16,0.4],[45,16,0.21],[46,14,0.4],[47,14,0.22],[48,12,0.41],[49,12,0.23],[50,10,0.43],[51,10,0.26],[52,8,0.45],[53,8,0.28],[54,6,0.47],[55,6,0.31],[56,4,0.5],[57,4,0.35],[58,2,0.53],[59,2,0.38],[60,0,0.56],[61,0,0.42],[62,0,0.28],[63,0,0.14],[64,0,0.0]]};
+const MAG = Array.from({length:128}, (_, m) => Math.pow(2, m >> 4) * (1 + (m & 15) / 16) - 1);
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function txt(parent, x, y, s, anchor, cls) { const t = el("text", {x, y, "text-anchor": anchor || "middle"}, parent); if (cls) t.setAttribute("class", cls); t.textContent = s; return t; }
+
+function frame(svg, W, H, m, x0, x1, y0, y1, xt, yt, xl, yl) {
+  const sx = v => m.l + (v - x0) / (x1 - x0) * (W - m.l - m.r);
+  const sy = v => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b);
+  for (const v of yt) { el("line", {x1: m.l, x2: W - m.r, y1: sy(v), y2: sy(v), class: v === 0 ? "axis" : "grid"}, svg); txt(svg, m.l - 6, sy(v) + 4, v, "end"); }
+  el("line", {x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b, class: "axis"}, svg);
+  for (const v of xt) txt(svg, sx(v), H - m.b + 16, v);
+  if (xl) txt(svg, (m.l + W - m.r) / 2, H - 4, xl);
+  if (yl) { const t = txt(svg, 12, (m.t + H - m.b) / 2, yl); t.setAttribute("transform", `rotate(-90 12 ${(m.t + H - m.b) / 2})`); }
+  return {sx, sy};
+}
+function tipper(box) { const t = document.createElement("div"); t.className = "tip"; t.hidden = true; box.appendChild(t); return t; }
+function place(box, tip, svg, x, y, html) {
+  const r = svg.getBoundingClientRect(), br = box.getBoundingClientRect(), k = r.width / svg.viewBox.baseVal.width;
+  tip.innerHTML = html; tip.hidden = false;
+  let left = r.left - br.left + x * k + 12; const w = tip.offsetWidth;
+  if (left + w > br.width - 4) left = r.left - br.left + x * k - w - 12;
+  tip.style.left = Math.max(4, left) + "px"; tip.style.top = (r.top - br.top + y * k - 10) + "px";
+}
+
+// DAC curve
+(function () {
+  const box = document.getElementById("c-dac"), svg = box.querySelector("svg"), W = 640, H = 260, m = {l: 50, r: 16, t: 10, b: 40};
+  const {sx, sy} = frame(svg, W, H, m, 0, 127, 0, 250, [0, 16, 32, 48, 64, 80, 96, 112, 127], [0, 50, 100, 150, 200, 250], "magnitude code (chord = code ÷ 16)", "level (i)");
+  let d = ""; MAG.forEach((v, i) => d += (i ? "L" : "M") + sx(i).toFixed(1) + "," + sy(v).toFixed(1));
+  el("path", {d, fill: "none", stroke: "var(--s1)", "stroke-width": 2}, svg);
+  for (let c = 1; c < 8; c++) el("circle", {cx: sx(c * 16), cy: sy(MAG[c * 16]), r: 3, fill: "var(--s1)", stroke: "var(--surface)", "stroke-width": 2}, svg);
+  txt(svg, sx(127) - 4, sy(247) + 14, "247i", "end", "lbl");
+  txt(svg, sx(112), sy(MAG[112]) - 8, "127i", "end", "lbl");
+  txt(svg, sx(96), sy(MAG[96]) - 8, "63i", "end", "lbl");
+  const tip = tipper(box), cross = el("line", {class: "axis", y1: m.t, y2: H - m.b, "stroke-dasharray": "3 3", visibility: "hidden"}, svg);
+  const dot = el("circle", {r: 4, fill: "var(--s1)", stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden"}, svg);
+  const hit = el("rect", {x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent"}, svg);
+  hit.addEventListener("pointermove", e => {
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+    const i = Math.max(0, Math.min(127, Math.round((p.x - m.l) / (W - m.l - m.r) * 127)));
+    cross.setAttribute("x1", sx(i)); cross.setAttribute("x2", sx(i)); cross.setAttribute("visibility", "visible");
+    dot.setAttribute("cx", sx(i)); dot.setAttribute("cy", sy(MAG[i])); dot.setAttribute("visibility", "visible");
+    place(box, tip, svg, sx(i), sy(MAG[i]), `code ${i} · chord ${i >> 4} step ${i & 15}<br>level ${MAG[i].toFixed(3)} i`);
+  });
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); });
+})();
+
+// SINAD by level
+(function () {
+  const box = document.getElementById("c-sinad"), svg = box.querySelector("svg"), W = 640, H = 300, m = {l: 50, r: 120, t: 12, b: 40};
+  const {sx, sy} = frame(svg, W, H, m, -42, 0, 0, 55, [-42, -36, -30, -24, -18, -12, -6, 0], [0, 10, 20, 30, 40, 50], "sine level (dBFS)", "SINAD (dB)");
+  const S = [["linear8", "var(--s1)", "8-bit linear"], ["os", "var(--s2)", "QTM today"], ["nearest", "var(--s3)", "nearest level"], ["hires", "var(--s4)", "16-bit source"]];
+  const pts = D.sinad.slice().sort((a, b) => a.level - b.level);
+  const ends = [];
+  for (const [k, c, name] of S) {
+    let d = ""; pts.forEach((r, i) => d += (i ? "L" : "M") + sx(r.level).toFixed(1) + "," + sy(r[k]).toFixed(1));
+    el("path", {d, fill: "none", stroke: c, "stroke-width": 2}, svg);
+    pts.forEach(r => el("circle", {cx: sx(r.level), cy: sy(r[k]), r: 3, fill: c, stroke: "var(--surface)", "stroke-width": 1.5}, svg));
+    ends.push({y: sy(pts[pts.length - 1][k]), name});
+  }
+  ends.sort((a, b) => a.y - b.y); for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 13) ends[i].y = ends[i - 1].y + 13;
+  ends.forEach(e => txt(svg, W - m.r + 8, e.y + 4, e.name, "start", "lbl"));
+  const tip = tipper(box), cross = el("line", {class: "axis", y1: m.t, y2: H - m.b, "stroke-dasharray": "3 3", visibility: "hidden"}, svg);
+  const hit = el("rect", {x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent"}, svg);
+  hit.addEventListener("pointermove", e => {
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+    let best = pts[0]; for (const r of pts) if (Math.abs(sx(r.level) - p.x) < Math.abs(sx(best.level) - p.x)) best = r;
+    cross.setAttribute("x1", sx(best.level)); cross.setAttribute("x2", sx(best.level)); cross.setAttribute("visibility", "visible");
+    place(box, tip, svg, sx(best.level), sy(best.hires), `${best.level} dBFS<br>` + S.map(([k, , n]) => `${n}: ${best[k].toFixed(1)} dB`).join("<br>"));
+  });
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+  const tb = document.querySelector("#t-sinad tbody");
+  for (const r of D.sinad) { const tr = document.createElement("tr"); tr.innerHTML = [r.level, r.linear8, r.os, r.os_thd, r.nearest, r.hires].map(v => `<td class="n">${typeof v === "number" ? v.toFixed(v === r.level ? 0 : 1) : v}</td>`).join(""); tb.appendChild(tr); }
+})();
+
+// Volume error
+(function () {
+  const box = document.getElementById("c-vol"), svg = box.querySelector("svg"), W = 640, H = 220, m = {l: 50, r: 16, t: 10, b: 40};
+  const {sx, sy} = frame(svg, W, H, m, 0.5, 64.5, -0.6, 0.8, [1, 8, 16, 24, 32, 40, 48, 56, 64], [-0.6, -0.3, 0, 0.3, 0.6], "MOD volume", "error (dB)");
+  const bw = (W - m.l - m.r) / 64 - 2;
+  const tip = tipper(box);
+  for (const [v, sub, err] of D.vol) {
+    const y = sy(Math.max(err, 0)), h = Math.max(1, Math.abs(sy(err) - sy(0)));
+    const r = el("rect", {x: sx(v) - bw / 2, y, width: bw, height: h, rx: Math.min(2, bw / 2), fill: "var(--s1)"}, svg);
+    const hit = el("rect", {x: sx(v) - bw / 2 - 1, y: m.t, width: bw + 2, height: H - m.t - m.b, fill: "transparent"}, svg);
+    hit.addEventListener("pointermove", () => { r.setAttribute("fill", "var(--s2)"); place(box, tip, svg, sx(v), y, `volume ${v}<br>subtract ${sub}<br>error ${err > 0 ? "+" : ""}${err.toFixed(2)} dB`); });
+    hit.addEventListener("pointerleave", () => { r.setAttribute("fill", "var(--s1)"); tip.hidden = true; });
+  }
+  txt(svg, sx(60.5), sy(0.75), "60–64 identical", "middle", "lbl");
+})();
+
+// Frequency response
+(function () {
+  const R24 = [[20.0,0.21],[25.2,0.27],[31.7,0.31],[39.9,0.33],[50.3,0.34],[63.2,0.35],[79.7,0.35],[100.2,0.36],[126.3,0.36],[159.0,0.35],[199.8,0.34],[251.8,0.33],[316.9,0.32],[399.4,0.29],[502.0,0.26],[631.3,0.21],[795.2,0.13],[1002.3,0.0],[1262.6,-0.2],[1590.3,-0.5],[1998.8,-0.96],[2515.7,-1.65],[3168.6,-2.58],[3991.1,-3.68],[5026.0,-4.93],[6323.0,-6.42],[7975.3,-8.18],[10013.0,-9.84],[12597.0,-11.8],[15888.5,-13.85],[20019.6,-15.79]];
+  const R48 = [[20.0,0.2],[25.2,0.26],[31.7,0.29],[39.9,0.32],[50.2,0.33],[63.3,0.34],[79.5,0.34],[100.2,0.35],[126.3,0.34],[159.0,0.34],[200.3,0.33],[251.8,0.32],[316.9,0.31],[399.1,0.29],[502.9,0.25],[631.3,0.2],[795.2,0.12],[1003.1,0.0],[1262.6,-0.2],[1590.3,-0.5],[2003.2,-0.97],[2513.0,-1.65],[3173.8,-2.6],[3991.1,-3.7],[5026.0,-4.96],[6323.0,-6.44],[7975.3,-8.2]];
+  const box = document.getElementById("c-resp"), svg = box.querySelector("svg"), W = 640, H = 280, m = {l: 50, r: 16, t: 10, b: 40};
+  const L0 = Math.log10(20), L1 = Math.log10(20000);
+  const sx = f => m.l + (Math.log10(f) - L0) / (L1 - L0) * (W - m.l - m.r);
+  const sy = v => H - m.b - (v + 18) / 20 * (H - m.t - m.b);
+  for (const v of [-18, -15, -12, -9, -6, -3, 0, 2]) { el("line", {x1: m.l, x2: W - m.r, y1: sy(v), y2: sy(v), class: v === 0 ? "axis" : "grid"}, svg); txt(svg, m.l - 6, sy(v) + 4, v, "end"); }
+  for (const [f, s] of [[20, "20"], [100, "100"], [1000, "1k"], [3200, "3.2k"], [10000, "10k"], [20000, "20k"]]) { el("line", {x1: sx(f), x2: sx(f), y1: m.t, y2: H - m.b, class: "grid"}, svg); txt(svg, sx(f), H - m.b + 16, s); }
+  txt(svg, (m.l + W - m.r) / 2, H - 4, "frequency (Hz)");
+  const yl = txt(svg, 12, (m.t + H - m.b) / 2, "dB re 1 kHz"); yl.setAttribute("transform", `rotate(-90 12 ${(m.t + H - m.b) / 2})`);
+  const fit = f => 0.33 - 10 * Math.log10(1 + (f / 3215) ** 2) + 10 * Math.log10(1 + (1000 / 3215) ** 2) - 0.33 - 10 * Math.log10(1 + (4.15 / f) ** 2);
+  let d = ""; for (let i = 0; i <= 120; i++) { const f = 20 * Math.pow(1000, i / 120); d += (i ? "L" : "M") + sx(f).toFixed(1) + "," + sy(fit(f)).toFixed(1); }
+  el("path", {d, fill: "none", stroke: "var(--ink-2)", "stroke-width": 1.5, "stroke-dasharray": "4 4"}, svg);
+  for (const [S, c] of [[R48, "var(--s2)"], [R24, "var(--s1)"]]) {
+    let p = ""; S.forEach((r, i) => p += (i ? "L" : "M") + sx(r[0]).toFixed(1) + "," + sy(r[1]).toFixed(1));
+    el("path", {d: p, fill: "none", stroke: c, "stroke-width": 2}, svg);
+    S.forEach(r => el("circle", {cx: sx(r[0]), cy: sy(r[1]), r: 3, fill: c, stroke: "var(--surface)", "stroke-width": 1.5}, svg));
+  }
+  txt(svg, sx(10013) + 6, sy(-9.84) - 8, "−9.8 dB at 10 kHz", "start", "lbl");
+  const tip = tipper(box), cross = el("line", {class: "axis", y1: m.t, y2: H - m.b, "stroke-dasharray": "3 3", visibility: "hidden"}, svg);
+  const hit = el("rect", {x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent"}, svg);
+  hit.addEventListener("pointermove", e => {
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+    let i = 0; R24.forEach((r, k) => { if (Math.abs(sx(r[0]) - p.x) < Math.abs(sx(R24[i][0]) - p.x)) i = k; });
+    const r = R24[i], q = R48[i];
+    cross.setAttribute("x1", sx(r[0])); cross.setAttribute("x2", sx(r[0])); cross.setAttribute("visibility", "visible");
+    place(box, tip, svg, sx(r[0]), sy(r[1]), `${r[0].toFixed(0)} Hz<br>24 µs: ${r[1].toFixed(2)} dB` + (q ? `<br>48 µs: ${q[1].toFixed(2)} dB` : "") + `<br>3.2 kHz fit: ${fit(r[0]).toFixed(2)} dB`);
+  });
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+})();
+
+// Original filter against the bypass
+(function () {
+  const F = [[20.0,-0.19],[25.2,-0.15],[31.7,-0.13],[39.9,-0.12],[50.3,-0.11],[63.2,-0.11],[79.7,-0.11],[100.2,-0.11],[126.3,-0.11],[159.0,-0.12],[199.8,-0.12],[251.8,-0.13],[316.9,-0.13],[399.4,-0.12],[502.0,-0.12],[631.3,-0.09],[795.2,-0.06],[1002.3,0.0],[1262.6,0.08],[1590.3,0.18],[1998.8,0.08],[2515.7,-1.13],[3168.5,-5.13],[3991.0,-11.45],[5025.9,-18.49],[6322.9,-25.79],[7975.2,-33.41],[10012.8,-40.87],[12596.8,-48.62],[15888.3,-56.42],[20019.3,-64.46]];
+  const B = [[20.0,0.21],[25.2,0.27],[31.7,0.31],[39.9,0.33],[50.3,0.34],[63.2,0.35],[79.7,0.35],[100.2,0.36],[126.3,0.36],[159.0,0.35],[199.8,0.34],[251.8,0.33],[316.9,0.32],[399.4,0.29],[502.0,0.26],[631.3,0.21],[795.2,0.13],[1002.3,0.0],[1262.6,-0.2],[1590.3,-0.5],[1998.8,-0.96],[2515.7,-1.65],[3168.6,-2.58],[3991.1,-3.68],[5026.0,-4.93],[6323.0,-6.42],[7975.3,-8.18],[10013.0,-9.84],[12597.0,-11.8],[15888.5,-13.85],[20019.6,-15.79]];
+  const box = document.getElementById("c-filter"), svg = box.querySelector("svg"), W = 640, H = 300, m = {l: 50, r: 16, t: 10, b: 40};
+  const L0 = Math.log10(20), L1 = Math.log10(20000);
+  const sx = f => m.l + (Math.log10(f) - L0) / (L1 - L0) * (W - m.l - m.r);
+  const sy = v => H - m.b - (v + 70) / 75 * (H - m.t - m.b);
+  for (const v of [-70, -60, -50, -40, -30, -20, -10, 0]) { el("line", {x1: m.l, x2: W - m.r, y1: sy(v), y2: sy(v), class: v === 0 ? "axis" : "grid"}, svg); txt(svg, m.l - 6, sy(v) + 4, v, "end"); }
+  for (const [f, s] of [[20, "20"], [100, "100"], [1000, "1k"], [2840, "2.8k"], [10000, "10k"], [20000, "20k"]]) { el("line", {x1: sx(f), x2: sx(f), y1: m.t, y2: H - m.b, class: "grid"}, svg); txt(svg, sx(f), H - m.b + 16, s); }
+  txt(svg, (m.l + W - m.r) / 2, H - 4, "frequency (Hz)");
+  const yl = txt(svg, 12, (m.t + H - m.b) / 2, "dB re 1 kHz"); yl.setAttribute("transform", `rotate(-90 12 ${(m.t + H - m.b) / 2})`);
+  for (const [S, c] of [[B, "var(--s1)"], [F, "var(--s2)"]]) {
+    let p = ""; S.forEach((r, i) => p += (i ? "L" : "M") + sx(r[0]).toFixed(1) + "," + sy(r[1]).toFixed(1));
+    el("path", {d: p, fill: "none", stroke: c, "stroke-width": 2}, svg);
+    S.forEach(r => el("circle", {cx: sx(r[0]), cy: sy(r[1]), r: 3, fill: c, stroke: "var(--surface)", "stroke-width": 1.5}, svg));
+  }
+  txt(svg, sx(10013) + 6, sy(-40.87) + 4, "−41 dB", "start", "lbl");
+  txt(svg, sx(10013) - 6, sy(-9.84) - 8, "−10 dB", "end", "lbl");
+  const tip = tipper(box), cross = el("line", {class: "axis", y1: m.t, y2: H - m.b, "stroke-dasharray": "3 3", visibility: "hidden"}, svg);
+  const hit = el("rect", {x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent"}, svg);
+  hit.addEventListener("pointermove", e => {
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+    let i = 0; F.forEach((r, k) => { if (Math.abs(sx(r[0]) - p.x) < Math.abs(sx(F[i][0]) - p.x)) i = k; });
+    cross.setAttribute("x1", sx(F[i][0])); cross.setAttribute("x2", sx(F[i][0])); cross.setAttribute("visibility", "visible");
+    place(box, tip, svg, sx(F[i][0]), sy(B[i][1]), `${F[i][0].toFixed(0)} Hz<br>original filter: ${F[i][1].toFixed(1)} dB<br>bypassed: ${B[i][1].toFixed(1)} dB`);
+  });
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+})();
+
+// A3020 measured error by code
+(function () {
+  const E = [[0.14,0.2],[0.01,-0.26],[0.09,-0.17],[0.02,-0.13],[0.14,-0.05],[0.11,-0.12],[0.14,-0.02],[0.03,-0.11],[0.46,0.23],[0.38,0.2],[0.41,0.31],[0.39,0.25],[0.55,0.38],[0.48,0.38],[0.55,0.44],[0.55,0.37],[0.39,0.29],[0.36,0.3],[0.48,0.39],[0.48,0.4],[0.6,0.57],[0.65,0.59],[0.79,0.74],[0.79,0.79],[1.27,1.25],[1.32,1.26],[1.43,1.4],[1.42,1.41],[1.59,1.56],[1.58,1.57],[1.67,1.69],[1.69,1.67],[0.52,0.5],[0.64,0.63],[0.86,0.85],[0.99,0.98],[1.25,1.27],[1.36,1.37],[1.59,1.58],[1.69,1.7],[2.19,2.22],[2.3,2.32],[2.52,2.54],[2.63,2.68],[2.91,2.95],[3.04,3.08],[3.25,3.3],[3.36,3.42],[0.42,0.42],[0.47,0.48],[0.59,0.62],[0.66,0.67],[0.85,0.87],[0.9,0.94],[1.04,1.07],[1.1,1.14],[1.46,1.5],[1.52,1.56],[1.65,1.69],[1.71,1.76],[1.89,1.95],[1.95,2.0],[2.07,2.13],[2.13,2.2],[0.22,0.24],[0.13,0.16],[0.09,0.13],[0.01,0.05],[0.03,0.07],[-0.05,-0.01],[-0.09,-0.04],[-0.17,-0.13],[-0.06,-0.01],[-0.15,-0.09],[-0.19,-0.13],[-0.27,-0.21],[-0.25,-0.19],[-0.34,-0.27],[-0.37,-0.31],[-0.46,-0.39],[0.17,0.2],[0.15,0.18],[0.16,0.19],[0.14,0.17],[0.2,0.23],[0.18,0.21],[0.18,0.22],[0.15,0.19],[0.27,0.3],[0.25,0.28],[0.25,0.29],[0.24,0.26],[0.31,0.32],[0.28,0.3],[0.28,0.3],[0.25,0.28],[0.17,0.18],[0.14,0.16],[0.13,0.15],[0.1,0.13],[0.15,0.17],[0.12,0.15],[0.11,0.15],[0.09,0.12],[0.14,0.17],[0.11,0.15],[0.1,0.14],[0.07,0.11],[0.11,0.15],[0.08,0.12],[0.07,0.11],[0.04,0.08],[0.02,0.03],[0.01,0.01],[0.0,0.01],[-0.01,-0.01],[0.02,0.03],[0.0,0.01],[-0.0,-0.01],[-0.03,-0.03],[-0.02,-0.02],[-0.04,-0.05],[-0.05,-0.07],[-0.08,-0.1],[-0.05,-0.08],[-0.08,-0.12],[-0.1,-0.14],[-0.14,-0.18]];
+  const box = document.getElementById("c-a3020"), svg = box.querySelector("svg"), W = 640, H = 260, m = {l: 50, r: 16, t: 10, b: 40};
+  const {sx, sy} = frame(svg, W, H, m, 0, 127, -1, 4, [0, 16, 32, 48, 64, 80, 96, 112, 127], [-1, 0, 1, 2, 3, 4], "magnitude code", "error (steps)");
+  for (let c = 1; c < 8; c++) el("line", {x1: sx(16 * c), x2: sx(16 * c), y1: m.t, y2: H - m.b, class: "grid"}, svg);
+  [[0, "var(--s1)", ""], [1, "var(--s2)", "5 4"]].forEach(([k, c, dash]) => {
+    let d = ""; E.forEach((e, i) => d += (i ? "L" : "M") + sx(i).toFixed(1) + "," + sy(e[k]).toFixed(1));
+    el("path", {d, fill: "none", stroke: c, "stroke-width": 2, "stroke-dasharray": dash}, svg);
+  });
+  txt(svg, sx(47), sy(3.42) - 8, "code 47", "middle", "lbl");
+  const tip = tipper(box), cross = el("line", {class: "axis", y1: m.t, y2: H - m.b, "stroke-dasharray": "3 3", visibility: "hidden"}, svg);
+  const hit = el("rect", {x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent"}, svg);
+  hit.addEventListener("pointermove", e => {
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+    const i = Math.max(0, Math.min(127, Math.round((p.x - m.l) / (W - m.l - m.r) * 127)));
+    cross.setAttribute("x1", sx(i)); cross.setAttribute("x2", sx(i)); cross.setAttribute("visibility", "visible");
+    place(box, tip, svg, sx(i), sy(Math.max(E[i][0], E[i][1])), `code ${i} · chord ${i >> 4} step ${i & 15}<br>+ half ${E[i][0].toFixed(2)} steps<br>− half ${E[i][1].toFixed(2)} steps`);
+  });
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+})();
+</script>

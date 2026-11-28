@@ -5,3 +5,6 @@ compile*.txt
 listing-scratch/
 __pycache__/
 .vscode/tasks.json
+# Measured linear-to-log tables, and the OS table the audio model reads
+!recordings/*.bin
+!tools/prep/linlog.bin
